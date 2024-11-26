@@ -26,7 +26,7 @@ for (package in necessary_packages) {
 
 **Section 1 : N. ureae routine culture growth curve**
 
-The μmax can be found in Supplementary Figure S4C and Supplementary Table S5. The routine culture growth model curve is used in Supplementary Figure S1C  
+The μmax can be found in Supplementary Figure S4C and Supplementary Table S5. The routine culture growth model curve is used in Supplementary Figure S2C  
 
 Step 1: Data input.
 
@@ -156,7 +156,7 @@ ggsave("Figure S4C-NUE maximum specific growth rate.pdf", plot = line_plot_expon
 
 **Section 2 : N. ureae fast-track cultures cell density data**
 
-The boxplots produced can be found in Supplementary Figure S1A and Supplementary Figure S1B. Cell density data are found in Supplementary Table S4 
+The boxplots produced can be found in Supplementary Figure S2A and Supplementary Figure S2B. Cell density data are found in Supplementary Table S4 
 
 Step 1: Data input. 
 
@@ -244,7 +244,7 @@ print(line_plots_DNA)
 
 **Section 3 : N. ureae fast-track cultures cell activity curves**
 
-The activity rate can be found in Supplementary Table S5. The fast-track culture activity plot is used in Supplementary Figure S1C  
+The activity rate can be found in Supplementary Table S5. The fast-track culture activity plot is used in Supplementary Figure S2C  
 
 Step 1: Data input.
 
