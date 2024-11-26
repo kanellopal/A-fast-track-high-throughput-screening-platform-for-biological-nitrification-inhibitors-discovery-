@@ -19,19 +19,14 @@ References for the R packages utilised in the code.
 4. Greenwell, B. M., Kabban, C. M. S. (2014). “investr: An R Package for Inverse Estimation.” The R Journal, 6(1), 90–100. https://doi.org/10.32614/RJ-2014-009
 5. Gu, Z., Eils, R., & Schlesner, M. (2016). Complex heatmaps reveal patterns and correlations in multidimensional genomic data. Bioinformatics (Oxford, England), 32(18), 2847–2849. https://doi.org/10.1093/bioinformatics/btw313
 6. Kassambara, A., Mundt, F. (2020). _factoextra: Extract and Visualize the Results of Multivariate Data Analyses_. R package version 1.0.7. https://CRAN.R-project.org/package=factoextra
-7. Kassambara, A. (2023a). ggpubr: 'ggplot2' Based Publication Ready Plots_. R package version 0.6.0, https://CRAN.R-project.org/package=ggpubr
-8. Kassambara, A. (2023b). rstatix: Pipe-Friendly Framework for Basic Statistical Tests. R package version 0.7.2
-9. Kaur-Bhambra, J., Wardak, D. L. R., Prosser, J. I., & Gubry-Rangin, C. (2022). Revisiting plant biological nitrification inhibition efficiency using multiple archaeal and bacterial ammonia-oxidising cultures. Biology and Fertility of Soils, 58(3), 241–249. https://doi.org/10.1007/s00374-020-01533-1
-10. Müller, K., Wickham, H. (2023). _tibble: Simple Data Frames_. R package version 3.2.1. https://CRAN.R-project.org/package=tibble
-11. Oksanen, J., Simpson, G., Blanchet, F., Kindt, R., Legendre, P., Minchin, P., O'Hara, R., Solymos, P., Stevens, M., Szoecs, E., Wagner, H., Barbour, M., Bedward, M., Bolker, B., Borcard, D., Carvalho, G., Chirico, M., De Caceres, M., Durand, S., Evangelista, H., FitzJohn, R., Friendly, M., Furneaux, B., Hannigan, G., Hill, M., Lahti, L., McGlinn, D., Ouellette, M., Ribeiro Cunha, E., Smith, T., Stier, A., Ter Braak, C., Weedon, J. (2022). _vegan: Community Ecology Package_. R package version 2.6-4, https://CRAN.R-project.org/package=vegan
-12. Papadopoulou, E. S., Bachtsevani, E., Lampronikou, E., Adamou, E., Katsaouni, A., Vasileiadis, S., … Karpouzas, D. G. (2020). Comparison of Novel and Established Nitrification Inhibitors Relevant to Agriculture on Soil Ammonia- and Nitrite-Oxidizing Isolates. Frontiers in Microbiology, 11. https://doi.org/10.3389/fmicb.2020.581283
-13. Pedersen, T. (2024). patchwork: The Composer of Plots. R package version 1.2.0
-14. Powell, S. J., & Prosser, J. I. (1986). Effect of copper on inhibition by nitrapyrin of growth of Nitrosomonas europaea. Current Microbiology, 14(3), 177–179. 
-https://doi.org/10.1007/bf01568371
-15. R Core Team (2020). R: A Language and Environment for Statistical Computing. Austria: R Foundation for Statistical Computing
-16. Ritz, C., Baty, F., Streibig, J. C., and Gerhard, D. (2016). Dose-response analysis using R. PLoS  One 10:e0146021. https://doi.org/10.1371/journal.pone.0146021
-17. Shaw, L. J., Nicol, G. W., Smith, Z., Fear, J., Prosser, J. I., & Baggs, E. M. (2006). Nitrosospira spp. can produce nitrous oxide via a nitrifier denitrification pathway. Environmental Microbiology, 8(2), 214–222. https://doi.org/10.1111/j.1462-2920.2005.00882.x
-18. Wickham, H. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York, 2016.
-19. Wickham, H., Bryan, J. (2023). _readxl: Read Excel Files_. R package version 1.4.3. https://CRAN.R-project.org/package=readxl
-20. Wickham, H., François, R., Henry, L., Müller, K., Vaughan, D. (2023). _dplyr: A Grammar of  Data Manipulation_. R package version 1.1.4. https://CRAN.R-project.org/package=dplyr
+7. Kassambara, A. (2023). ggpubr: 'ggplot2' Based Publication Ready Plots_. R package version 0.6.0, https://CRAN.R-project.org/package=ggpubr
+8. Kassambara, A. (2023). rstatix: Pipe-Friendly Framework for Basic Statistical Tests. R package version 0.7.2
+9. Müller, K., Wickham, H. (2023). _tibble: Simple Data Frames_. R package version 3.2.1. https://CRAN.R-project.org/package=tibble
+10. Oksanen, J., Simpson, G., Blanchet, F., Kindt, R., Legendre, P., Minchin, P., O'Hara, R., Solymos, P., Stevens, M., Szoecs, E., Wagner, H., Barbour, M., Bedward, M., Bolker, B., Borcard, D., Carvalho, G., Chirico, M., De Caceres, M., Durand, S., Evangelista, H., FitzJohn, R., Friendly, M., Furneaux, B., Hannigan, G., Hill, M., Lahti, L., McGlinn, D., Ouellette, M., Ribeiro Cunha, E., Smith, T., Stier, A., Ter Braak, C., Weedon, J. (2022). _vegan: Community Ecology Package_. R package version 2.6-4, https://CRAN.R-project.org/package=vegan
+11. Pedersen, T. (2024). patchwork: The Composer of Plots. R package version 1.2.0
+12. R Core Team (2020). R: A Language and Environment for Statistical Computing. Austria: R Foundation for Statistical Computing
+13. Ritz, C., Baty, F., Streibig, J. C., and Gerhard, D. (2016). Dose-response analysis using R. PLoS  One 10:e0146021. https://doi.org/10.1371/journal.pone.0146021
+14. Wickham, H. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York, 2016.
+15. Wickham, H., Bryan, J. (2023). _readxl: Read Excel Files_. R package version 1.4.3. https://CRAN.R-project.org/package=readxl
+16. Wickham, H., François, R., Henry, L., Müller, K., Vaughan, D. (2023). _dplyr: A Grammar of  Data Manipulation_. R package version 1.1.4. https://CRAN.R-project.org/package=dplyr
 
