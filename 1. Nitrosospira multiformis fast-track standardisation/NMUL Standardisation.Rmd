@@ -112,12 +112,12 @@ activity_line_plot_with_model <- activity_line_plot_with_model +
 print(activity_line_plot_with_model)
 ```
 
-Step 5: We can calculate the maximum specific growth rate from the activity data. Briefly, we isolate the data from the exponential growth phase (50h - 110h) and we perform a semi - logarithmic transformation, using the natural logarithm (ln) to transform the nitrite values 
+Step 5: We can calculate the maximum specific growth rate from the activity data. Briefly, we isolate the data from the exponential growth phase (60h - 110h) and we perform a semi - logarithmic transformation, using the natural logarithm (ln) to transform the nitrite values 
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-# We assume that the exponential growth phase lasts from 50 h - 110 h, so we isolate these data
+# We assume that the exponential growth phase lasts from 60 h - 110 h, so we isolate these data
 library(dplyr)
-data_exponential <- filter(data_routine, between(Time, 50, 110))
+data_exponential <- filter(data_routine, between(Time, 60, 110))
 
 # Prepare the dataframe 
 data_exponential$Generation <- factor(data_exponential$Generation, levels = legend_order)
