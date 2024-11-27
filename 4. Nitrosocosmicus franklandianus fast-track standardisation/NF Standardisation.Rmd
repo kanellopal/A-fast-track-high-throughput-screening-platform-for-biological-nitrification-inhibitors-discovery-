@@ -1,0 +1,123 @@
+---
+title: "Ca. Nitrosocosmicus franklandianus fast-track system standardisation"
+author: "Alex Kanellopoulos"
+date: "2024-11-27"
+output: html_document
+---
+
+Brief description: This is a script that includes all the necessary code to reproduce the results from the respective manuscript. 
+
+Step 1: Let's see all the necessary packages needed for the analysis and load them. If they are not installed, we will install them first. 
+
+```{r Library Installation and Loading, echo=TRUE, message=FALSE, warning=FALSE}
+# Here we store the necessary packages in the necessary_packages variable
+necessary_packages <- c("readxl","viridis","scales","dplyr","ggplot2","agricolae","sicegar","patchwork","gridExtra","rstatix", "tibble")
+
+# Here we check if the necessary packages are installed. If not, R installs them 
+if (!requireNamespace(necessary_packages, quietly = TRUE)) {
+  install.packages(necessary_packages)
+}
+
+# Here, for every package included in the necessary_packages variable, R will load it. The character.only = TRUE ensures that library() will try to interpret the package names as characters (as it needs for it to work) 
+for (package in necessary_packages) {
+  library(package, character.only = TRUE)
+}
+```
+
+**Section 1 : "Ca. N. franklandianus routine culture growth curve and amoA abundance curve**
+
+The routine culture growth model curve is used in Supplementary Figure S5Β 
+
+Step 1: Data input.
+
+```{r Data import and pre-processing, echo=TRUE}
+# Here, we create an R data frame named with the data
+library(readxl)
+data_routine <- read_excel("NF Standardisation.xlsx", sheet = 1, col_names = TRUE)
+# We can change the names of the columns to more R-friendly names
+names(data_routine) <- c("Time", "Nitrite", "Mean_Nitrite", "St.Dev_Nitrite", "Cells", "Mean_Cells","St.Dev_Cells")
+#We keep only the rows that contain a Nitrite value (thus removing rows that are left blank to make life easier when viewing the .xlsx file)
+data_routine <- filter(data_routine, !is.na(Nitrite))
+#Let's view the data
+glimpse(data_routine)
+```
+
+Step 2: We can use a double curve plot to check congruence between nitrite concentration and amoA abundance
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Prepare the plot in steps and export
+cairo_pdf("Figure S5B-NF_nitrite_amoA_congruence.pdf", width = 10, height = 8)
+
+# Set plot parameters
+par(mar=c(5, 4, 4, 6) + 0.1)
+
+plot(filter(data_routine, !is.na(Mean_Nitrite))$Time, filter(data_routine, !is.na(Mean_Nitrite))$Mean_Nitrite, pch=16, axes=FALSE, ylim=c(0,2100), xlab="", ylab="", 
+     type="b",col="black", main="Candidatus Nitrosocosmicus franklandianus - Culture activity compared to flow cytometry data")
+axis(2, ylim=c(0,2100),col="black",las=1)  
+mtext("[Nitrite] (μM)",side=2,line=3)
+box()
+
+par(new=TRUE)
+
+plot(filter(data_routine, !is.na(Mean_Nitrite))$Time, filter(data_routine, !is.na(Mean_Nitrite))$Mean_Cells,  xlab="", ylab="", ylim=c(4E+04,4E+06), 
+     axes=FALSE, type="b", col="red")
+mtext("Cell Density (cells/mL)",side=4,col="red",line=4) 
+axis(4, ylim=c(0,7000), col="red",col.axis="red",las=1)
+
+axis(1,pretty(range(filter(data_routine, !is.na(Mean_Nitrite))$Time),10))
+mtext("Time (Hours)",side=1,col="black",line=2.5)  
+
+dev.off()
+# Export the plot
+
+```
+
+**Section 2 : Ca. N. franklandianus fast-track cultures activity data**
+
+The plot produced can be found at Supplementary Figure S5A
+
+Step 1: Data input.
+
+```{r Data import and pre-processing, echo=TRUE}
+# Here, we create an R data frame named with the data
+library(readxl)
+data_1D <- read_excel("NF Standardisation.xlsx", sheet = 2, col_names = TRUE)
+# We can change the names of the columns to more R-friendly names
+names(data_1D) <- c("Time", "Nitrite", "Mean", "St.Dev", "Repetition")
+#We keep only the rows that contain a Nitrite value (thus removing rows that are left blank to make life easier when viewing the .xlsx file)
+data_1D <- filter(data_1D, !is.na(Nitrite))
+#Let's view the data
+glimpse(data_1D)
+```
+
+Step 2: Create the plot by overlaying the fast-track culture activity curves with the routine cultures growth curve
+
+```{r Data import and pre-processing, echo=TRUE}
+# Create the plot 
+line_plot_FTS_vs_routine_activity_NF <- ggplot(data_1D, aes(x = Time, y = Nitrite)) +
+  geom_point(aes(colour = Repetition), size = 2) + 
+  geom_smooth(aes(colour = Repetition), method = lm, linetype = "dashed", linewidth = 2, se = F, fullrange = T) + 
+  theme_light() + 
+  labs(title = "Candidatus Nitrosocosmicus franklandianus Fast - Track Culture", subtitle = "Linear Regression compared to the growth model for the Routine culture", x = "Time (Hours)", y = "[Nitrite] (μM)") + 
+  scale_y_continuous(breaks = seq(from = 0, to = 2100, by = 300), limits = c(0,2100)) +
+  scale_x_continuous(breaks = seq(from = 0, to = 250, by = 50), limits = c(0,250)) +
+  theme(legend.position = "bottom", legend.box = "vertical", axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 20), legend.title = element_text(size = 20)) + scale_color_manual(values = c("1st" = "#840084", "2nd" = "#b200b2", "3rd" = "#ff6bff", "Routine Culture" = "#006b6b"), name = "Culture")
+
+line_plot_FTS_vs_routine_activity_NF <- line_plot_FTS_vs_routine_activity_NF + 
+  geom_point(data = data_routine, aes(x = Time, y = Mean_Nitrite)) + geom_line(data = filter(data_routine, !is.na(Mean_Nitrite)), aes(x = Time, y = Mean_Nitrite, colour = "Routine Culture"), linewidth = 1) 
+
+line_plot_FTS_vs_routine_activity_NF <- line_plot_FTS_vs_routine_activity_NF + 
+  geom_errorbar(data = filter(data_routine, !is.na(Mean_Nitrite)), aes(x = Time, ymin = Mean_Nitrite - St.Dev_Nitrite, ymax = Mean_Nitrite + St.Dev_Nitrite), colour = "#006b6b", width = 1.5) + 
+  geom_text(x = Inf, y = -Inf, label = paste("R - squared =", round(summary(lm(Nitrite~Time, data_1D))$adj.r.squared,4)), colour = "magenta4", size = 10, hjust = 1.1, vjust = -2) 
+
+print(line_plot_FTS_vs_routine_activity_NF)
+
+cairo_pdf("Figure S5A-N. franklandianus activity vs routine.pdf", width = 24, height = 12, onefile = T)
+print(line_plot_FTS_vs_routine_activity_NF)
+dev.off()
+
+
+```
+
+This is the end of this script. 
+Please always remember to cite the authors of any code you use!
