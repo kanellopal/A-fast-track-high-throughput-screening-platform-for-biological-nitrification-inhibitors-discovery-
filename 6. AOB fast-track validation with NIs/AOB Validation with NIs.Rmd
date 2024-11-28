@@ -1,0 +1,797 @@
+---
+title: "AOB validation with pure NIs"
+author: "Alex Kanellopoulos"
+date: "2024-11-27"
+output: html_document
+---
+
+Brief description: This is a script that includes all the necessary code to reproduce the results from the respective manuscript. 
+
+Step 1: Let's see all the necessary packages needed for the analysis and load them. If they are not installed, we will install them first. 
+
+```{r Library Installation and Loading, echo=TRUE, message=FALSE, warning=FALSE}
+# Here we store the necessary packages in the necessary_packages variable
+necessary_packages <- c("readxl","viridis","scales","dplyr","ggplot2","agricolae","sicegar","patchwork","gridExtra","rstatix", "tibble")
+
+# Here we check if the necessary packages are installed. If not, R installs them 
+if (!requireNamespace(necessary_packages, quietly = TRUE)) {
+  install.packages(necessary_packages)
+}
+
+# Here, for every package included in the necessary_packages variable, R will load it. The character.only = TRUE ensures that library() will try to interpret the package names as characters (as it needs for it to work) 
+for (package in necessary_packages) {
+  library(package, character.only = TRUE)
+}
+```
+
+**Section 1 : AOB responses to pure NIs**
+
+The plots are used in Figure 2 and Supplementary Figure S7
+
+Step 1: Data input.
+
+```{r Data import and pre-processing, echo=TRUE}
+library(readxl)
+data_Inhibition <- read_excel("AOB validation with NIs.xlsx", col_names = TRUE)
+
+# We have designated the different experiments/batches/runs of the fast-track system
+names(data_Inhibition) <- c("Time", "Compound", "Strain", "Treatment","Dose", "Replicate", "Nitrite", "Mean", "St.Dev", "CV%", "Experiment")
+View(data_Inhibition)
+```
+
+Step 2: Data processing
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+# Get a list of the NIs and remove water and DMSO
+compounds <- as.factor(levels(as.factor(data_Inhibition$Compound)))
+compounds_NI <- as.factor(as.vector(compounds[-c(3,8)]))
+
+# Change the AOB strains designation ad 
+library(dplyr)
+data_Inhibition <- mutate(data_Inhibition, Strain = ifelse(Strain == "NUE", "N.ureae", Strain))
+data_Inhibition <- mutate(data_Inhibition, Strain = ifelse(Strain == "NMUL", "N.multiformis", Strain))
+data_Inhibition <- mutate(data_Inhibition, Strain = ifelse(Strain == "NCOM", "N.communis", Strain))
+strains <- levels(as.factor(data_Inhibition$Strain))
+
+# Split data from each strain into different dataframes
+data_Inhibition_NMUL <- filter(data_Inhibition, Strain == "N.multiformis")
+data_Inhibition_NUE <- filter(data_Inhibition, Strain == "N.ureae")
+data_Inhibition_NCOM <- filter(data_Inhibition, Strain == "N.communis")
+
+# Get lists of the NIs for each strain
+compounds_NI_NMUL <- as.factor(levels(as.factor(data_Inhibition_NMUL$Compound)))
+compounds_NI_NMUL <- as.factor(as.vector(compounds_NI_NMUL[-c(3,8)]))
+
+compounds_NI_NUE <- as.factor(levels(as.factor(data_Inhibition_NUE$Compound)))
+compounds_NI_NUE <- as.factor(as.vector(compounds_NI_NUE[-c(3,8)]))
+
+compounds_NI_NCOM <- as.factor(levels(as.factor(data_Inhibition_NCOM$Compound)))
+compounds_NI_NCOM <- as.factor(as.vector(compounds_NI_NCOM[-c(3,8)]))
+
+# Split the data of each strain per compound with the respective control
+
+  # N. multiformis
+
+dataframe_list_NMUL <- list()
+
+for (i in 1:summary(levels(compounds))[[1]]) {
+  if (compounds[i] == "DMPP" | compounds[i] == "Water") {
+    control <- "Water" 
+    } else {
+      control <- "DMSO"
+  }
+  data_inh <- data.frame(filter(data_Inhibition_NMUL, Compound == compounds[i] | Compound == control))
+  exp <- filter(data_inh, Compound == compounds[i])$Experiment
+  data_inh <- filter(data_inh, Experiment == exp[1])
+  dataframe_name <- paste("df","inhibition","NMUL",compounds[i], sep = "_")
+  dataframe_list_NMUL[[dataframe_name]] <- data_inh
+}
+
+for (i in 1:summary(levels(compounds))[[1]]) {
+  if (summary(levels(as.factor(dataframe_list_NMUL[[i]]$Compound)))[[1]] < 2) {
+    dataframe_list_NMUL[[i]] <- NULL
+  }
+} 
+
+dataframe_list_NMUL_filtered <- Filter(function(df) nrow(df) > 0, dataframe_list_NMUL)
+dataframe_list_NMUL <- dataframe_list_NMUL_filtered
+remove(dataframe_list_NMUL_filtered)
+
+  # N. ureae
+
+dataframe_list_NUE <- list()
+
+for (i in 1:summary(levels(compounds))[[1]]) {
+  if (compounds[i] == "DMPP" | compounds[i] == "Water") {
+    control <- "Water" 
+  } else {
+    control <- "DMSO"
+  }
+  data_inh <- data.frame(filter(data_Inhibition_NUE, Compound == compounds[i] | Compound == control))
+  exp <- filter(data_inh, Compound == compounds[i])$Experiment
+  data_inh <- filter(data_inh, Experiment == exp[1])
+  dataframe_name <- paste("df","inhibition","NUE",compounds[i], sep = "_")
+  dataframe_list_NUE[[dataframe_name]] <- data_inh
+}
+
+for (i in 1:summary(levels(compounds))[[1]]) {
+  if (summary(levels(as.factor(dataframe_list_NUE[[i]]$Compound)))[[1]] < 2) {
+    dataframe_list_NUE[[i]] <- NULL
+  }
+} 
+
+dataframe_list_NUE_filtered <- Filter(function(df) nrow(df) > 0, dataframe_list_NUE)
+dataframe_list_NUE <- dataframe_list_NUE_filtered
+remove(dataframe_list_NUE_filtered)
+
+  # N. communis
+
+dataframe_list_NCOM <- list()
+
+for (i in 1:summary(levels(compounds))[[1]]) {
+  if (compounds[i] == "DMPP" | compounds[i] == "Water") {
+    control <- "Water" 
+  } else {
+    control <- "DMSO"
+  }
+  data_inh <- data.frame(filter(data_Inhibition_NCOM, Compound == compounds[i] | Compound == control))
+  exp <- filter(data_inh, Compound == compounds[i])$Experiment
+  data_inh <- filter(data_inh, Experiment == exp[1])
+  dataframe_name <- paste("df","inhibition","NCOM",compounds[i], sep = "_")
+  dataframe_list_NCOM[[dataframe_name]] <- data_inh
+}
+
+for (i in 1:summary(levels(compounds))[[1]]) {
+  if (summary(levels(as.factor(dataframe_list_NCOM[[i]]$Compound)))[[1]] < 2) {
+    dataframe_list_NCOM[[i]] <- NULL
+  }
+} 
+
+dataframe_list_NCOM_filtered <- Filter(function(df) nrow(df) > 0, dataframe_list_NCOM)
+dataframe_list_NCOM <- dataframe_list_NCOM_filtered
+remove(dataframe_list_NCOM_filtered)
+
+```
+
+Step 3: Prepare the activity plots
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+# Prepare the legend order for each compound x strain combination
+
+  # N. multiformis 
+
+legend_order_NMUL <- list()
+
+for (i in 1:nrow(as.matrix(summary(dataframe_list_NMUL)))) {
+  legend_order <- filter(dataframe_list_NMUL[[i]], !is.na(Mean))$Dose[1:length(levels(as.factor(dataframe_list_NMUL[[i]]$Dose)))]
+  legend_order_name <- paste("legend","order","NMUL", compounds_NI_NMUL[i], sep = "_")
+  legend_order_NMUL[[legend_order_name]] <- legend_order 
+  }
+
+  # N. ureae 
+
+legend_order_NUE <- list()
+
+for (i in 1:nrow(as.matrix(summary(dataframe_list_NUE)))) {
+  legend_order <- filter(dataframe_list_NUE[[i]], !is.na(Mean))$Dose[1:7]
+  legend_order_name <- paste("legend","order","NUE",compounds_NI_NUE[i], sep = "_")
+  legend_order_NUE[[legend_order_name]] <- legend_order 
+}
+
+  # N. communis 
+
+legend_order_NCOM <- list()
+
+for (i in 1:nrow(as.matrix(summary(dataframe_list_NCOM)))) {
+  legend_order <- filter(dataframe_list_NCOM[[i]], !is.na(Mean))$Dose[1:5]
+  legend_order_name <- paste("legend","order","NCOM",compounds_NI_NCOM[i], sep = "_")
+  legend_order_NCOM[[legend_order_name]] <- legend_order 
+}
+
+# Set colour combinations for the different treatments per strain
+colors_A <- c("blue", "yellow3", "orange", "red", "red4")
+colors_B <- c("blue", "yellow", "yellow3", "orange", "orange3", "red", "red4")
+
+# Generate the plots
+
+  # N. multiformis
+
+inhibition_plots_NMUL <- list()
+
+for (i in 1:nrow(as.matrix(summary(dataframe_list_NMUL)))) {
+  compound <- compounds_NI_NMUL[i]
+
+  dataframe_list_NMUL[[i]]$Treatment <- factor(dataframe_list_NMUL[[i]]$Treatment, levels = legend_order_NMUL[[i]])
+      inhibition_plot_temp <- ggplot(dataframe_list_NMUL[[i]], aes(x = Time, y = Nitrite, group = as.factor(Dose))) + theme_light() + labs(title = paste("Nitrosospira multiformis -",  dataframe_list_NMUL[[i]]$Compound[length(dataframe_list_NMUL[[i]]$Compound)]), subtitle = "Linear Regression Plot", x = "Time (h)", y = "[Nitrite] (μM)") + theme(axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 24), legend.title = element_text(size = 20), legend.position = "bottom") + scale_y_continuous(breaks = seq(from = 0, to = 1200, by = 300), limits = c(0,1200)) + scale_x_continuous(breaks = seq(from = 0, to = 24, by = 8), limits = c(0,25)) + geom_smooth(aes(x = Time, y = Nitrite, colour = as.factor(Dose)), method = lm, linetype = "dashed", linewidth = 0.9, se = F, fullrange = T) + scale_color_manual(values = colors_A) + theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "inches"))
+
+  inhibition_plot_name <- paste("inhibition","plot","NMUL",compounds_NI_NMUL[i],sep = "_")
+  inhibition_plots_NMUL[inhibition_plot_name] <- list(plot = inhibition_plot_temp)
+}
+
+  # N. ureae
+
+inhibition_plots_NUE <- list()
+
+for (i in 1:nrow(as.matrix(summary(dataframe_list_NUE)))) {
+  compound <- compounds_NI_NUE[i]
+   if (compound == "Ethoxyquin") {
+    colours <- colors_B
+    legend_order_NUE[[i]] <- legend_order_NUE[[i]][1:7]
+    } else {
+    colours <- colors_A
+    legend_order_NUE[[i]] <- legend_order_NUE[[i]][1:5]
+    }
+  dataframe_list_NUE[[i]]$Treatment <- factor(dataframe_list_NUE[[i]]$Treatment, levels = legend_order_NUE[[i]])
+  inhibition_plot_temp <- ggplot(dataframe_list_NUE[[i]], aes(x = Time, y = Nitrite, group = as.factor(Dose))) + theme_light() + labs(title = paste("Nitrosomonas ureae -",  dataframe_list_NUE[[i]]$Compound[length(dataframe_list_NUE[[i]]$Compound)]), subtitle = "Linear Regression Plot", x = "Time (h)", y = "[Nitrite] (μM)") + theme(axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 24), legend.title = element_text(size = 20), legend.position = "bottom") + scale_y_continuous(breaks = seq(from = 0, to = 1200, by = 300), limits = c(0,1200)) + scale_x_continuous(breaks = seq(from = 0, to = 24, by = 8), limits = c(0,25)) + geom_smooth(aes(x = Time, y = Nitrite, colour = as.factor(Dose)), method = lm, linetype = "dashed", linewidth = 0.9, se = F, fullrange = T) + scale_color_manual(values = colours) + theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "inches"))
+  
+  inhibition_plot_name <- paste("inhibition","plot","NUE",compounds_NI_NUE[i],sep = "_")
+  inhibition_plots_NUE[inhibition_plot_name] <- list(plot = inhibition_plot_temp)
+}
+
+  # N. communis
+
+inhibition_plots_NCOM <- list()
+
+for (i in 1:nrow(as.matrix(summary(dataframe_list_NCOM)))) {
+  compound <- compounds_NI_NCOM[i]
+
+    dataframe_list_NCOM[[i]]$Treatment <- factor(dataframe_list_NCOM[[i]]$Treatment, levels = legend_order_NCOM[[i]])
+  inhibition_plot_temp <- ggplot(dataframe_list_NCOM[[i]], aes(x = Time, y = Nitrite, group = as.factor(Dose))) + theme_light() + labs(title = paste("Nitrosomonas communis -",  dataframe_list_NCOM[[i]]$Compound[length(dataframe_list_NCOM[[i]]$Compound)]), subtitle = "Linear Regression Plot", x = "Time (h)", y = "[Nitrite] (μM)") + theme(axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 24), legend.title = element_text(size = 20), legend.position = "bottom") + scale_y_continuous(breaks = seq(from = 0, to = 3000, by = 500), limits = c(0,3000)) + scale_x_continuous(breaks = seq(from = 3, to = 15, by = 4), limits = c(3,15)) + geom_smooth(aes(x = Time, y = Nitrite, colour = as.factor(Dose)), method = lm, linetype = "dashed", linewidth = 0.9, se = F, fullrange = T) + scale_color_manual(values = colors_A) + theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "inches"))
+  
+  inhibition_plot_name <- paste("inhibition","plot","NCOM",compounds_NI_NCOM[i],sep = "_")
+  inhibition_plots_NCOM[inhibition_plot_name] <- list(plot = inhibition_plot_temp)
+}
+
+```
+
+Step 4: Generate the .pdf file
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#### Generate the .pdf file ---- 
+inhibition_plots_all <- list()
+
+for (i in 1:length(levels(compounds_NI))) {
+  pattern <- as.character(compounds_NI[i])
+  plot_NMUL <- inhibition_plots_NMUL[grep(pattern = pattern, x = as.character(inhibition_plots_NMUL))]
+  plot_NUE <- inhibition_plots_NUE[grep(pattern = pattern, x = as.character(inhibition_plots_NUE))]
+  plot_NCOM <- inhibition_plots_NCOM[grep(pattern = pattern, x = as.character(inhibition_plots_NCOM))]
+  inhibition_plots_all_list <- list(plot_NMUL,plot_NUE,plot_NCOM)
+  names(inhibition_plots_all_list) <- c("plot_NMUL","plot_NUE","plot_NCOM")
+  inhibition_plots_merged_name <- paste("inhibition","plots","merged",compounds_NI[i],sep = "_")
+  inhibition_plots_all[[inhibition_plots_merged_name]] <- inhibition_plots_all_list
+}
+
+
+library(grid)
+library(gridExtra)
+
+plots <- unlist(inhibition_plots_all, recursive = F)
+plots <- unlist(plots, recursive = F)
+empty_plot <- ggplot() + theme_void()
+empty_plot <- list(empty_plot)
+
+plots_A <- c(plots[1:9])
+plots_B <- c(plots[10:18])
+
+vp <- viewport(width = 0.9, height = 0.9, just = "center", 
+               x = 0.5, y = 0.5, 
+               name = "vp", 
+               xscale = c(0, 1), yscale = c(0, 1),
+               clip = "on",
+               angle = 0)
+
+plot_arranged_A <- grid.arrange(grobs = plots_A, ncol = 3, nrow = 3, heights = c(1.5,1.5,1.5))
+plot_arranged_B <- grid.arrange(grobs = plots_B, ncol = 3, nrow = 3, heights = c(1.5,1.5,1.5))
+
+cairo_pdf("Figure 2A-AOB validation with NIs.pdf", onefile = T, height = 28, width = 24)
+pushViewport(vp)
+grid.draw(plot_arranged_A)
+dev.off()
+
+cairo_pdf("Figure 2B-AOB validation with NIs.pdf", onefile = T, height = 28, width = 24)
+pushViewport(vp)
+grid.draw(plot_arranged_B)
+dev.off()
+
+graphics.off()
+```
+
+
+**Section 2 : Single-sigmoidal Modeling for NI EC50 determination**
+
+The code in this section of the script has been used to determine EC50 values for the following NIs and AOB strains:
+  N. multiformis: All NIs 
+  N. ureae: All NIs except for 1,9-decanediol
+analysing the responses as shown in Figure 2 and Supplementary Figure S7
+
+
+```{r Data import and pre-processing, echo=TRUE}
+list.of.packages <- c("drc", "qpcR","xlsx")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages) > 0) install.packages(new.packages)
+
+
+library(drc)
+library(qpcR)
+library(xlsx)
+
+# Each time put the respective mat table
+mat <- read.table("mat_MHPP_NMUL.txt", header = T, sep = "", dec = ".")
+
+# prepare the plots and the EC50 values table both interleaved and sequenciaLLy
+
+ECs<-array(dim=c(18,length(colnames(mat[2:ncol(mat)]))))
+#row.names(ECs)<-levels(mat$soil)
+row.names(ECs) <- c(paste(c("EC50","P-value_EC50","EC10","EC25","EC75","EC90","Rsq","AIC","ResSD"),"LL",sep = "_"),paste(c("EC50","P-value_EC50","EC10","EC25","EC75","EC90","Rsq","AIC","ResSD"),"best",sep = "_"))
+colnames(ECs)<-c(colnames(mat[2:ncol(mat)]))
+#ECsinterl<-ECs
+
+
+
+
+
+
+
+#### prepare the combined plots (asked by Reviewer 1) for aLL activities using the norm to ctl ----
+
+library(drc)
+library(qpcR)
+
+valuecollection <- colnames(mat)[2:ncol(mat)]
+my.LL.4.predmat <- mat
+my.LL.4.predmat[,2:ncol(my.LL.4.predmat)] <- NA
+
+my.best.predmat <- mat
+my.best.predmat[,2:ncol(my.best.predmat)] <- NA
+
+### create the coLLective plot
+  #activity <- "resp"
+   sel_mod<-colnames(mat)[2:ncol(mat)]
+   names(sel_mod) <- colnames(mat)[2:ncol(mat)]
+  mymaxvals <- array()
+  my.best.models <- list()
+  my.LL.4.models <- list()
+  
+  for(valcolmn in valuecollection){
+    
+    
+    dat_a=mat
+
+    tryCatch({
+      
+      if(length(grep("Error",try(drm(dat_a[,valcolmn] ~ dat_a[,"dose"], data = dat_a, fct = LL.4(names=c("Slope","Lower Limit","Upper Limit", "ED50"))))[1])) < 1){
+        dat_a.mLL.4 <- drm(dat_a[,valcolmn] ~ dat_a[,"dose"], data = dat_a, fct = LL.4(names=c("Slope","Lower Limit","Upper Limit", "ED50")))
+        
+      } else {
+        dat_a.mLL.4 <- NA
+        assign(paste("model_",valcolmn,sep = ""), list(NA))
+        next
+      }
+
+
+      # compare and select among other models using the AIC
+    
+    mod_comp<-drc::mselect(dat_a.mLL.4,c(getMeanFunctions(3),getMeanFunctions(4),getMeanFunctions(5)), icfct=AIC)
+    mod_comp<-mod_comp[complete.cases(mod_comp),]
+    sel_mod[valcolmn]<-row.names(mod_comp)[1]
+    
+    assign(paste("model_",valcolmn,sep = ""), drm(dat_a[,valcolmn]~dat_a[,"dose"], fct=get(sel_mod[valcolmn])(),data=dat_a))
+    mymaxvals[valcolmn] <- max(get(paste("model_",valcolmn,sep = ""))$data[,2])
+    
+    #my.best.models[[valcolmn]] <- get(paste("model_",valcolmn,sep = ""))
+    #my.LL.4.models[[valcolmn]] <- dat_a.mLL.4
+    },error=function(e) 
+    {
+      assign(paste("model_",valcolmn,sep = ""), list(NA))
+      dat_a.mLL.4 <- list(NA)
+      my.best.models[[valcolmn]] <- get(paste("model_",valcolmn,sep = ""))
+      my.LL.4.models[[valcolmn]] <- dat_a.mLL.4
+      #next
+    }
+    )
+    
+    my.best.models[[valcolmn]] <- get(paste("model_",valcolmn,sep = ""))
+    my.LL.4.models[[valcolmn]] <- dat_a.mLL.4
+    ECs["EC50_LL",valcolmn] <- round(summary(my.LL.4.models[[valcolmn]])$coefficients["ED50:(Intercept)","Estimate"],3)
+    ECs["P-value_EC50_LL",valcolmn] <- round(summary(my.LL.4.models[[valcolmn]])$coefficients["ED50:(Intercept)","p-value"],3)
+    ECs["Rsq_LL",valcolmn] <- round(Rsq(my.LL.4.models[[valcolmn]]),2)
+    ECs["AIC_LL",valcolmn] <- round(AIC(my.LL.4.models[[valcolmn]]),1)
+    ECs["ResSD_LL",valcolmn] <- round(sqrt(summary(my.LL.4.models[[valcolmn]])$resVar),3)
+    ECs["EC50_best",valcolmn] <- round(summary(my.best.models[[valcolmn]])$coefficients["e:(Intercept)","Estimate"],3)
+    ECs["P-value_EC50_best",valcolmn] <- round(summary(my.best.models[[valcolmn]])$coefficients["e:(Intercept)","p-value"],3)
+    ECs["Rsq_best",valcolmn] <- round(Rsq(my.best.models[[valcolmn]]),2)
+    ECs["AIC_best",valcolmn] <- round(AIC(my.best.models[[valcolmn]]),1)
+    ECs["ResSD_best",valcolmn] <- round(sqrt(summary(my.best.models[[valcolmn]])$resVar),3)
+    my.LL.4.predmat[,valcolmn] <- my.LL.4.models[[valcolmn]]$predres[,"Predicted values"]
+    my.best.predmat[,valcolmn] <- my.best.models[[valcolmn]]$predres[,"Predicted values"]
+    
+    tryCatch({
+    
+    ECs["EC10_LL",valcolmn] <- round(ED(my.LL.4.models[[valcolmn]], 10)[1],3)
+    ECs["EC25_LL",valcolmn] <- round(ED(my.LL.4.models[[valcolmn]], 25)[1],3)
+    ECs["EC75_LL",valcolmn] <- round(ED(my.LL.4.models[[valcolmn]], 75)[1],3)
+    ECs["EC90_LL",valcolmn] <- round(ED(my.LL.4.models[[valcolmn]], 90)[1],3)
+    ECs["EC10_best",valcolmn] <- round(ED(my.best.models[[valcolmn]], 10)[1],3)
+    ECs["EC25_best",valcolmn] <- round(ED(my.best.models[[valcolmn]], 25)[1],3)
+    ECs["EC75_best",valcolmn] <- round(ED(my.best.models[[valcolmn]], 75)[1],3)
+    ECs["EC90_best",valcolmn] <- round(ED(my.best.models[[valcolmn]], 90)[1],3)
+    },error=function(e) 
+    { print("got_error_at_ECs")
+    }
+    )
+  }
+  
+  
+
+  
+  
+  
+  
+  
+  pdf(file = paste("modeling_output.pdf",sep = ""),height=5*2.5,width=7, onefile = T)
+  par(bty="n",xpd=T, mar=c(4,5,4,4), mfrow = c(5,2))
+  
+  for(i in 1:length(valuecollection)){
+    if(is.null(my.best.models[[valuecollection[i]]])){
+      next 
+    } else {
+      
+      plot(my.LL.4.models[[valuecollection[i]]], type = "all", xlab="dose", ylab="fold CTL", ylim=c(0,max(mymaxvals, na.rm = T)),legend=F, cex.main=1, lwd=2, cex=1.2, cex.axis=1.2, cex.lab=1.2, main = paste(valuecollection[i]," Log-Logistic (4 par.)\n", sep = ""))
+    legend("topright",legend = "", title = paste("\nEC50 = ",ECs["EC50_LL",valuecollection[i]],"\nRsq = ",ECs["Rsq_LL",valuecollection[i]],"\nP_EC50 = ",ECs["P-value_EC50_LL",valuecollection[i]]), bty = "n")
+    plot(my.best.models[[valuecollection[i]]], type = "all", xlab="dose", ylab="fold CTL", ylim=c(0,max(mymaxvals, na.rm = T)),legend=F, cex.main=1, lwd=2, cex=1.2, cex.axis=1.2, cex.lab=1.2, main = paste(valuecollection[i]," best ", getMeanFunctions(fname=sel_mod[valuecollection[i]])[[1]]$text,"\n", sep = ""))
+    legend("topright",legend = "", title = paste("\nEC50 = ",ECs["EC50_best",valuecollection[i]],"\nRsq = ",ECs["Rsq_best",valuecollection[i]],"\nP_EC50 = ",ECs["P-value_EC50_best",valuecollection[i]]), bty = "n")
+    }
+  } 
+    
+
+  
+  
+  dev.off()
+  
+  
+  # prep and write the tables
+  write.table(ECs,"modeling_output_ECs.txt", quote = F,sep = "\t", col.names = NA)
+  my.LL.4.predmat_means <- aggregate(my.LL.4.predmat, by = list(my.LL.4.predmat$dose), mean)
+  my.LL.4.predmat_means2 <- my.LL.4.predmat_means[,2:ncol(my.LL.4.predmat_means)]
+  write.table(my.LL.4.predmat_means2, "modeling_output_LL.4_pred_vals_means.txt", quote = F, row.names = F,sep = "\t")
+  write.table(my.LL.4.predmat, "modeling_output_LL.4_pred_vals.txt", quote = F, row.names = F,sep = "\t")
+  my.best.predmat_means <- aggregate(my.best.predmat, by = list(my.LL.4.predmat$dose), mean)
+  my.best.predmat_means2 <- my.best.predmat_means[,2:ncol(my.best.predmat_means)]
+  write.table(my.best.predmat_means2, "modeling_output_best_pred_vals_means.txt", quote = F, row.names = F,sep = "\t")
+  write.table(my.best.predmat, "modeling_output_best_pred_vals.txt", quote = F, row.names = F,sep = "\t")
+  
+  library(xlsx)
+  write.xlsx(mat, file = "modeling_output.xlsx", sheetName = "input data", row.names = F)
+  write.xlsx(ECs, file = "modeling_output.xlsx", sheetName = "EC50s and GOF", append = T)
+  write.xlsx(my.LL.4.predmat, file = "modeling_output.xlsx", sheetName = "LL.4 predictions", append = T, row.names = F)
+  write.xlsx(my.LL.4.predmat_means2, file = "modeling_output.xlsx", sheetName = "LL.4 prediction means", append = T, row.names = F)
+  write.xlsx(my.best.predmat, file = "modeling_output.xlsx", sheetName = "best model predictions", append = T, row.names = F)
+  write.xlsx(my.best.predmat_means2, file = "modeling_output.xlsx", sheetName = "best model prediction means", append = T, row.names = F)
+```
+
+**Section 3 : Linear Modeling for NI EC50 determination**
+
+The code in this section of the script has been used to determine EC50 values for the following NIs and AOB strains:
+  N. ureae: 1,9-decanediol
+  N. communis: DMPP, MHPP
+analysing the responses as shown in Figure 2 and Supplementary Figure S7
+
+Step 1: Package loading and data input
+
+```{r Data import and pre-processing, echo=TRUE}
+#### Library Load ---- 
+
+# Here we store the necessary packages in the necessary_packages variable
+necessary_packages <- c("dplyr","ggplot2","investr") 
+
+# Here we check if the necessary packages are installed. If not, R installs them 
+if (!requireNamespace(necessary_packages, quietly = TRUE)) {
+  install.packages(necessary_packages)
+}
+
+# Here, for every package included in the necessary_packages variable, R will load it. The character.only = TRUE ensures that library() will try to interpret the package names as characters (as it needs for it to work) 
+for (package in necessary_packages) {
+  library(package, character.only = TRUE)
+}
+
+
+#### Data Import ---- 
+
+# Here, we create a R data frame named data with the data of the mat.txt file. We keep the headers of the columns with header = TRUE. The decimals are set as . instead of , with dec = "." 
+data <- read.table("mat_MHPP_NCOM.txt", header = TRUE, sep = "", dec = ".") 
+
+# We want to create a variable that stores the different doses as numerics (numbers). 
+# So we need to make a factor out of the Dose column of the data frame to apply the levels() function to give us the different doses (with each dose appearing once). 
+# Then, we make those different doses numerics and we store them in the doses variable 
+doses <- as.numeric(levels(as.factor(data$Dose)))
+#### Data Processing ----
+a_control <- coef(lm(Nitrite~Time, filter(data, Dose == doses[1])))["Time"]
+```
+
+Step 2: Data visualisation
+
+```{r Data import and pre-processing, echo=TRUE}
+#### Data Visualisation ----
+
+# We create a variable named legend_order to set the order of the legend for our plot. It will be the same as the order of the different doses in the doses variable. Usually levels() will sort them automatically
+legend_order <- doses
+
+# We will create a plot for the effects of the different doses on Nitrite
+# We will use Time in the x-axis and Nitrite in the y-axis and we will colour depending on the different Dose.
+# We will use a light theme
+# We will put a tilte and rename the axis and the legend
+# We will customise the fonts of the labels and the titles and put the legend in the bottom
+# We will se the y axis from 0 to 1000 with steps of 200
+# We will use geom_sooth to create our linear regression curves (method = lm) with a dashed line and width of 0.6 without showing the standard error
+linear_regression_plot <- ggplot(data, aes(x = Time, y = Nitrite, colour = factor(Dose))) + 
+  theme_light() + 
+  labs(title = "Linear Regression Plot", x = "Time (h)", y = "[Nitrite] (μM)", colour = "Dose") +
+  theme(axis.title = element_text(size = 28), axis.text = element_text(size = 20), axis.text.x = element_text(angle = 45, hjust = 1, size = 16), legend.text = element_text(size = 20), legend.title = element_text(size = 20), legend.position = "bottom",) + 
+  scale_y_continuous(breaks = seq(0,3000, by = 500)) + 
+  ylim(0,3000) + 
+  geom_smooth(aes(x = Time, y = Nitrite, colour = factor(Dose)), method = lm, linetype = "dashed", linewidth = 0.6, se = F) 
+print(linear_regression_plot)
+
+# We want to obtain the adjusted R-squared values for each curve, with 4 decimals. So, we create a adj_r_squared_values variable where we store a text, which will say what the adjusted R-squared values are for each dose
+# It will search the summaries of the different linear regressions (of Nitrite v Time) for each dose separately. Hence where we need to designate the data for the lm() function we put filter(). Each time, it will consider only the data corresponding to the different dose from the doses variable, hence Dose == doses[i].  
+adj_r_squared_values <- paste("The adjusted R-squared values are", 
+                              "Control:", round(summary(lm(Nitrite~Time, filter(data, Dose == doses[1])))$adj.r.squared,4), 
+                              "Dose 1:", round(summary(lm(Nitrite~Time, filter(data, Dose == doses[2])))$adj.r.squared,4), 
+                              "Dose 2:", round(summary(lm(Nitrite~Time, filter(data, Dose == doses[3])))$adj.r.squared,4), 
+                              "Dose 3:", round(summary(lm(Nitrite~Time, filter(data, Dose == doses[4])))$adj.r.squared,4), 
+                              "Dose 4:", round(summary(lm(Nitrite~Time, filter(data, Dose == doses[5])))$adj.r.squared,4))
+print(adj_r_squared_values)
+
+```
+
+Step 3: Calculating the values required for the model to run
+```{r Data import and pre-processing, echo=TRUE}
+
+#### Calculations ----
+
+# So let's get the values
+a_control <- coef(lm(Nitrite~Time, filter(data, Dose == doses[1])))["Time"]
+a_NI_1 <- coef(lm(Nitrite~Time, filter(data, Dose == doses[2])))["Time"]
+a_NI_2 <- coef(lm(Nitrite~Time, filter(data, Dose == doses[3])))["Time"]
+a_NI_3 <- coef(lm(Nitrite~Time, filter(data, Dose == doses[4])))["Time"]
+a_NI_4 <- coef(lm(Nitrite~Time, filter(data, Dose == doses[5])))["Time"]
+
+# Now we use the following equation to calculate the AOI %
+AOI_1 <- (a_control - a_NI_1) * 100 / a_control
+AOI_2 <- (a_control - a_NI_2) * 100 / a_control
+AOI_3 <- (a_control - a_NI_3) * 100 / a_control
+AOI_4 <- (a_control - a_NI_4) * 100 / a_control
+
+#Finally we store the AOI% values in the AOIs variable, along side the AOI% of the control which is 0
+AOIs <- c(0, AOI_1,AOI_2,AOI_3,AOI_4)
+AOIs <- c(AOIs, AOI_5)
+
+
+#### AOI% Distribution Check ---- 
+
+# We can plot the data to check their fit
+plot_AOI_vs_dose <- plot(doses,AOIs, type = "o", ylab = "Ammonia Oxidation Inhibition %", xlab = "Dose") 
+```
+
+Step 4: EC50 determination 
+
+```{r Data import and pre-processing, echo=TRUE}
+
+#### EC50 Calculation ----
+
+# If the value is over 0.9 then we execute the first part, with all values included
+# So the AOIs variable remains the same
+# We check the linear regression report
+# We plot the data (AOI% v Dose) in a simple plot, with empty circles as points, renaimed axis titles and an abline representing the linear regression. In the plot, using text() we can insert information about the EC50 calculated, the adjusted R-squared of the regression and the p-value.
+# Finally we print the EC50 value
+if (summary(lm(AOIs~as.numeric(doses)))$adj.r.squared > 0.95 && summary(lm(AOIs~as.numeric(doses)))$coefficients["as.numeric(doses)","Pr(>|t|)"] < 0.05 ) {
+  AOIs <- AOIs
+  linear_regression <- lm(AOIs~as.numeric(doses))
+  linear_regression
+  plot_AOI_vs_dose <- plot(doses,AOIs, type = "o", ylab = "Ammonia Oxidation Inhibition %", xlab = "Dose") 
+  abline(lm(AOIs~as.numeric(doses)), col = "navyblue")
+  text(0,80,paste("EC50: ",round((50 - coef(linear_regression)["(Intercept)"])/coef(linear_regression)["as.numeric(doses)"], 2)),pos=4)
+  text(0,70,paste("Adjsuted R - squared:",round(summary(lm(AOIs~as.numeric(doses)))$adj.r.squared,4)),pos=4)
+  text(0,60,paste("p-value:", round(summary(linear_regression)$coefficients[2,4],4)),pos=4)
+  EC50 <- round((50 - coef(linear_regression)["(Intercept)"])/coef(linear_regression)["as.numeric(doses)"], 2)
+  # The EC50 value will be calculated from the appropriate part of the if statement and will be printed
+  EC50
+} else {
+  # Else we remove one AOI%, usually the first or the last can be out of the linear regression. 
+  # The doses and AOIs variables change so they will not include the removed values
+  # Everything else is the same as above
+  doses <- doses[2:5]
+  AOIs <- AOIs[2:5]
+  linear_regression <- lm(AOIs~as.numeric(doses))
+  linear_regression
+  plot_AOI_vs_dose <- plot(doses,AOIs, type = "o", ylab = "Ammonia Oxidation Inhibition %", xlab = "Dose") 
+  abline(lm(AOIs~as.numeric(doses)), col = "navyblue")
+  text(0,80,paste("EC50: ",round((50 - coef(linear_regression)["(Intercept)"])/coef(linear_regression)["as.numeric(doses)"], 2)),pos=4)
+  text(0,70,paste("Adjsuted R - squared:",round(summary(lm(AOIs~as.numeric(doses)))$adj.r.squared,4)),pos=4)
+  text(0,60,paste("p-value:", round(summary(linear_regression)$coefficients[2,4],4)),pos=4)
+  EC50 <- round((50 - coef(linear_regression)["(Intercept)"])/coef(linear_regression)["as.numeric(doses)"], 2)
+  # The EC50 value will be calculated from the appropriate part of the if statement and will be printed
+  EC50
+}
+
+# Perform a linear regression calibration to predict the EC50 with a st.error
+calibration <- calibrate(linear_regression, level = 0.95, y0 = 50, mean.response = F, interval = "Wald")
+se <- calibration$se
+
+#### Report Files Export---- 
+# We will create two .pdf files and a .txt file as part of the report. 
+# We will use cairo_pdf() for the .pdf files. The way it works is we designate the name of the files, as well as the dimensions in the () and then whatever we want to put inside comes next, before we close the graphics engine with dev.off()
+cairo_pdf("model_output_MHPP_NCOM.pdf", height = 6, width = 6, onefile = TRUE)
+plot_AOI_vs_dose <- plot(doses,AOIs, type = "o", ylab = "Ammonia Oxidation Inhibition %", xlab = "Dose") 
+abline(lm(AOIs~as.numeric(doses)), col = "navyblue")
+text(0.5,80,paste("EC50: ",round((50 - coef(linear_regression)["(Intercept)"])/coef(linear_regression)["as.numeric(doses)"], 2), "\u00B1", round(se,2) ,"μM"),pos=4)
+text(0.5,70,paste("Adjsuted R - squared:",round(summary(lm(AOIs~as.numeric(doses)))$adj.r.squared,4)),pos=4)
+text(0.5,60,paste("p-value:", round(summary(linear_regression)$coefficients[2,4],4)),pos=4)
+dev.off()
+
+cairo_pdf("linear_regressions_plot_MHPP_NCOM.pdf", height = 6, width = 6, onefile = TRUE)
+print(linear_regression_plot)
+dev.off()
+
+```
+
+**Section 4 : Polynomial Modeling for NI EC50 determination**
+
+The code in this section of the script has been used to determine EC50 values for the following NIs and AOB strains:
+  N. communis: 1,9-decanediol, Nitrapyrin
+analysing the responses as shown in Figure 2 and Supplementary Figure S7
+
+Step 1: Package loading and data input
+
+```{r Data import and pre-processing, echo=TRUE}
+#### Library Load ---- 
+
+# Here we store the necessary packages in the necessary_packages variable
+necessary_packages <- c("dplyr","ggplot2","investr") 
+
+# Here we check if the necessary packages are installed. If not, R installs them 
+if (!requireNamespace(necessary_packages, quietly = TRUE)) {
+  install.packages(necessary_packages)
+}
+
+# Here, for every package included in the necessary_packages variable, R will load it. The character.only = TRUE ensures that library() will try to interpret the package names as characters (as it needs for it to work) 
+for (package in necessary_packages) {
+  library(package, character.only = TRUE)
+}
+
+
+#### Data Import ---- 
+
+# Here, we create a R data frame named data with the data of the mat.txt file. We keep the headers of the columns with header = TRUE. The decimals are set as . instead of , with dec = "." 
+data <- read.table("mat_Nitrapyrin_NCOM.txt", header = TRUE, sep = "", dec = ".") 
+
+# We want to create a variable that stores the different doses as numerics (numbers). 
+# So we need to make a factor out of the Dose column of the data frame to apply the levels() function to give us the different doses (with each dose appearing once). 
+# Then, we make those different doses numerics and we store them in the doses variable 
+doses <- as.numeric(levels(as.factor(data$Dose)))
+#### Data Processing ----
+a_control <- coef(lm(Nitrite~Time, filter(data, Dose == doses[1])))["Time"]
+```
+
+Step 2: Data visualisation
+
+```{r Data import and pre-processing, echo=TRUE}
+#### Data Visualisation ----
+
+# We create a variable named legend_order to set the order of the legend for our plot. It will be the same as the order of the different doses in the doses variable. Usually levels() will sort them automatically
+legend_order <- doses
+
+# We will create a plot for the effects of the different doses on Nitrite
+# We will use Time in the x-axis and Nitrite in the y-axis and we will colour depending on the different Dose.
+# We will use a light theme
+# We will put a tilte and rename the axis and the legend
+# We will customise the fonts of the labels and the titles and put the legend in the bottom
+# We will se the y axis from 0 to 1000 with steps of 200
+# We will use geom_sooth to create our linear regression curves (method = lm) with a dashed line and width of 0.6 without showing the standard error
+linear_regression_plot <- ggplot(data, aes(x = Time, y = Nitrite, colour = factor(Dose))) + 
+  theme_light() + 
+  labs(title = "Linear Regression Plot", x = "Time (h)", y = "[Nitrite] (μM)", colour = "Dose") +
+  theme(axis.title = element_text(size = 28), axis.text = element_text(size = 20), axis.text.x = element_text(angle = 45, hjust = 1, size = 16), legend.text = element_text(size = 20), legend.title = element_text(size = 20), legend.position = "bottom",) + 
+  scale_y_continuous(breaks = seq(0,3000, by = 500)) + 
+  ylim(0,3000) + 
+  geom_smooth(aes(x = Time, y = Nitrite, colour = factor(Dose)), method = lm, linetype = "dashed", linewidth = 0.6, se = F) 
+print(linear_regression_plot)
+
+# We want to obtain the adjusted R-squared values for each curve, with 4 decimals. So, we create a adj_r_squared_values variable where we store a text, which will say what the adjusted R-squared values are for each dose
+# It will search the summaries of the different linear regressions (of Nitrite v Time) for each dose separately. Hence where we need to designate the data for the lm() function we put filter(). Each time, it will consider only the data corresponding to the different dose from the doses variable, hence Dose == doses[i].  
+adj_r_squared_values <- paste("The adjusted R-squared values are", 
+                              "Control:", round(summary(lm(Nitrite~Time, filter(data, Dose == doses[1])))$adj.r.squared,4), 
+                              "Dose 1:", round(summary(lm(Nitrite~Time, filter(data, Dose == doses[2])))$adj.r.squared,4), 
+                              "Dose 2:", round(summary(lm(Nitrite~Time, filter(data, Dose == doses[3])))$adj.r.squared,4), 
+                              "Dose 3:", round(summary(lm(Nitrite~Time, filter(data, Dose == doses[4])))$adj.r.squared,4), 
+                              "Dose 4:", round(summary(lm(Nitrite~Time, filter(data, Dose == doses[5])))$adj.r.squared,4))
+print(adj_r_squared_values)
+
+```
+
+Step 3: Calculating the values required for the model to run
+```{r Data import and pre-processing, echo=TRUE}
+
+#### Calculations ----
+
+# So let's get the values
+a_control <- coef(lm(Nitrite~Time, filter(data, Dose == doses[1])))["Time"]
+a_NI_1 <- coef(lm(Nitrite~Time, filter(data, Dose == doses[2])))["Time"]
+a_NI_2 <- coef(lm(Nitrite~Time, filter(data, Dose == doses[3])))["Time"]
+a_NI_3 <- coef(lm(Nitrite~Time, filter(data, Dose == doses[4])))["Time"]
+a_NI_4 <- coef(lm(Nitrite~Time, filter(data, Dose == doses[5])))["Time"]
+
+# Now we use the following equation to calculate the AOI %
+AOI_1 <- (a_control - a_NI_1) * 100 / a_control
+AOI_2 <- (a_control - a_NI_2) * 100 / a_control
+AOI_3 <- (a_control - a_NI_3) * 100 / a_control
+AOI_4 <- (a_control - a_NI_4) * 100 / a_control
+
+#Finally we store the AOI% values in the AOIs variable, along side the AOI% of the control which is 0
+AOIs <- c(0, AOI_1,AOI_2,AOI_3,AOI_4)
+AOIs <- c(AOIs, AOI_5)
+
+
+#### AOI% Distribution Check ---- 
+
+# We can plot the data to check their fit
+plot_AOI_vs_dose <- plot(doses,AOIs, type = "o", ylab = "Ammonia Oxidation Inhibition %", xlab = "Dose") 
+```
+
+Step 4: Determine the EC50
+
+```{r Data import and pre-processing, echo=TRUE}
+
+#### These are notes for a polynomial fit ----
+
+polynomial_model <- lm(AOIs ~ (as.numeric(doses) + I(as.numeric(doses)^2) + I(as.numeric(doses)^3)))
+summary(polynomial_model)
+fit <- lm(AOIs ~ (as.numeric(doses) + I(as.numeric(doses)^2) + I(as.numeric(doses)^3)))
+dose_seq <- seq(min(doses), max(doses), length.out = 100)
+predicted_AOIs <- predict(fit, newdata = data.frame(doses = dose_seq))
+plot_AOI_vs_dose <- plot(doses,AOIs, type = "o", ylab = "Ammonia Oxidation Inhibition %", xlab = "Dose") 
+lines(dose_seq, predicted_AOIs, col = "navyblue")
+solutions <- polyroot(c(-50 + coef(fit)["(Intercept)"], coef(fit)["as.numeric(doses)"], coef(fit)["I(as.numeric(doses)^2)"], coef(fit)["I(as.numeric(doses)^3)"]))
+EC50 <- Re(round(solutions[1],2))
+
+# Perform a non-linear regression calibration to predict the EC50 with a st.error
+coef_poly <- coef(polynomial_model)
+cov_matrix <- vcov(polynomial_model)
+
+poly_func <- function(x) {
+  coef_poly[1] + coef_poly[2] * x + coef_poly[3] * x^2 + coef_poly[4] * x^3
+}
+
+poly_derivative <- function(x) {
+  coef_poly[2] + 2 * coef_poly[3] * x + 3 * coef_poly[4] * x^2
+}
+
+y_target <- 50
+root <- uniroot(function(x) poly_func(x) - y_target, interval = c(0, 10000))$root
+
+deriv_at_root <- poly_derivative(root)
+gradient <- c(1, root, root^2, root^3)
+var_y <- t(gradient) %*% cov_matrix %*% gradient
+se_y <- sqrt(var_y) / abs(deriv_at_root)
+
+#### Report Files Export 
+cairo_pdf("model_output_Nitrapyrin_NCOM.pdf", height = 6, width = 6, onefile = TRUE)
+plot_AOI_vs_dose <- plot(doses,AOIs, type = "o", ylab = "Ammonia Oxidation Inhibition %", xlab = "Dose") 
+lines(dose_seq, predicted_AOIs, col = "navyblue")
+solutions <- polyroot(c(-50 + coef(fit)["(Intercept)"], coef(fit)["as.numeric(doses)"], coef(fit)["I(as.numeric(doses)^2)"], coef(fit)["I(as.numeric(doses)^3)"]))
+EC50 <- Re(round(solutions[1],2))
+text(2,20,paste("EC50:", EC50, "μM", "\u00B1", round(se_y,2) ,"μM"),pos=4)
+text(2,10,paste("Adjsuted R - squared:",round(summary(fit)$adj.r.squared,4)),pos=4)
+text(2,0,paste("p-value:", round(pf(summary(fit)$fstatistic[1], summary(fit)$fstatistic[2], summary(fit)$fstatistic[3], lower.tail = FALSE),4)),pos=4)
+dev.off()
+
+cairo_pdf("linear_regressions_plot_Nitrapyrin_NCOM.pdf", height = 6, width = 6, onefile = TRUE)
+print(linear_regression_plot)
+dev.off()
+
+```
+
+This is the end of this script. 
+Please always remember to cite the authors of any code you use!
