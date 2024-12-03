@@ -1,0 +1,210 @@
+---
+title: "Root exudates screening"
+author: "Alex Kanellopoulos"
+date: "2024-12-03"
+output: html_document
+---
+
+Brief description: This is a script that includes all the necessary code to reproduce the results from the respective manuscript. 
+
+Step 1: Let's see all the necessary packages needed for the analysis and load them. If they are not installed, we will install them first. 
+
+```{r Library Installation and Loading, echo=TRUE, message=FALSE, warning=FALSE}
+# Here we store the necessary packages in the necessary_packages variable
+necessary_packages <- c("readxl","viridis","scales","dplyr","ggplot2","agricolae","sicegar","patchwork","gridExtra","rstatix", "tibble")
+
+# Here we check if the necessary packages are installed. If not, R installs them 
+if (!requireNamespace(necessary_packages, quietly = TRUE)) {
+  install.packages(necessary_packages)
+}
+
+# Here, for every package included in the necessary_packages variable, R will load it. The character.only = TRUE ensures that library() will try to interpret the package names as characters (as it needs for it to work) 
+for (package in necessary_packages) {
+  library(package, character.only = TRUE)
+}
+```
+
+**Section 1 : Plot the heatmap with the AOI% values**
+
+The heatmap is used in Figure 4 
+
+Step 1: Data input.
+
+```{r Data import and pre-processing, echo=TRUE}
+library(readxl)
+data <- read_xlsx("data.xlsx", sheet = 1)
+names(data) <- c("Exudate","N. ureae", "N. multiformis","N. viennensis","Ca. N. franklandianus","Origin")
+
+```
+
+Step 2: Data processing
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+data_origin <- data.frame(data$Exudate,data$Origin)
+names(data_origin) <- c("Exudate","Origin")
+
+library(dplyr)
+
+root_exudates <- data$Exudate
+data_AOI <- data[,-c(1,6)]
+
+
+data_AOI_mat <- as.matrix(data_AOI)
+col_to_row_names <- root_exudates
+rownames(data_AOI_mat) <- col_to_row_names
+```
+
+Step 3: Create the preliminary heatmap
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+library(ComplexHeatmap)
+library(dendextend)
+row_dend <- as.dendrogram(hclust(dist(data_AOI_mat, method = "euclidean"), method = "complete"))
+row_dend <- colour_branches(row_dend, k = 6) 
+column_dend <- as.dendrogram(hclust(dist(data_AOI_mat, method = "euclidean"), method = "complete"))
+column_dend <- colour_branches(column_dend, k = 1)
+
+RE_AOI_heatmap <- Heatmap(data_AOI_mat, name = "Ammonia Oxidation Inhibition %", 
+        column_title = "AOM strains", column_title_side = "bottom", column_title_gp = gpar(fontsize = 16), column_dend_side = "bottom", column_names_gp = gpar(fontsize = 10),
+        row_title = "Root Exudate", row_names_side = "left",  row_names_gp = gpar(fontsize = 12),   row_dend_width = unit(10,"mm"), row_title_gp = gpar(fontsize = 16),
+        column_title_rot = 0, column_names_rot = 0, column_names_centered = T, 
+        col = c("lightblue3", "lightblue1", "yellow", "orange", "orange3", "red"), 
+        cluster_rows = row_dend, row_dend_gp = gpar(font = "bold"),
+        border = F, 
+        column_km = 1, 
+        row_split = 6, 
+        show_column_dend = T,
+        width = ncol(data_AOI_mat)*unit(25,"mm"), height = nrow(data_AOI_mat)*unit(4.5,"mm"), 
+        cell_fun = function(j, i, x, y, width, height, fill) {
+  grid.text(sprintf("%.2f", data_AOI_mat[i, j]), x, y, gp = gpar(fontsize = 10))
+})
+
+row_order_clustered <- row_order(RE_AOI_heatmap)
+
+```
+
+Step 4: Process the data to prepare for annotating the genotype origin
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+row_order_clustered_list <- unlist(row_order_clustered, recursive = F)
+
+data_clustered <- cbind(data_AOI_mat, row_order_clustered_list)
+
+genotype_origin_ordered <- cbind(data_origin, seq(1,20,1))
+names(genotype_origin_ordered) <- c("Exudate","Origin","Number")
+genotype_origin_ordered <- mutate(genotype_origin_ordered, Number = as.vector(Number))
+genotype_origin_ordered$Number <- factor(genotype_origin_ordered$Number, levels = row_order_clustered_list)
+genotype_origin_ordered <- genotype_origin_ordered[order(genotype_origin_ordered$Number), ]
+View(genotype_origin_ordered)
+
+RE_order <- data.frame(genotype_origin_ordered)$Exudate
+genotype_origin_ordered <- genotype_origin_ordered$Origin
+origin_order <- genotype_origin_ordered 
+
+
+library(tibble)
+data_AOI_origin <- data_AOI_mat
+data_AOI_origin <- data.frame(data_AOI_origin)
+data_AOI_origin <- rownames_to_column(data_AOI_origin, var = "Exudate")
+
+data_AOI_origin$Exudate <- factor(data_AOI_origin$Exudate, levels = RE_order)
+data_AOI_origin <- data_AOI_origin[order(data_AOI_origin$Exudate), ]
+data_AOI_origin <- cbind(seq(1,10,1), data_AOI_origin)
+rownames(data_AOI_origin) <- data_AOI_origin$`seq(1, 44, 1)`
+rownames(data_AOI_origin) <- data_AOI_origin$Exudate
+data_AOI_origin <- data_AOI_origin[,-c(1:2)]
+
+data_AOI_origin_mat <- as.matrix(data_AOI_origin)
+
+```
+
+Step 5: Prepare the final heatmap
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+row_ha_Origin = rowAnnotation("Wheat genotype origin" = origin_order, col = list("Wheat genotype origin" = c("India" = "green4", "Austria" = "red")))
+
+
+row_dend_origin <- as.dendrogram(hclust(dist(data_AOI_origin_mat, method = "euclidean")))
+row_dend_origin <- colour_branches(row_dend_origin, k = 10) 
+
+RE_AOI_heatmap_origin_annotated <- Heatmap(data_AOI_origin_mat, name = "Ammonia Oxidation Inhibition %", right_annotation = row_ha_Origin,
+                                column_title = "AOM strains", column_title_side = "bottom", column_title_gp = gpar(fontsize = 16), column_dend_side = "bottom", column_names_gp = gpar(fontsize = 10),
+                                row_title = "Compound", row_names_side = "left",  row_names_gp = gpar(fontsize = 12), row_dend_width = unit(10,"mm"), row_title_gp = gpar(fontsize = 16),
+                                column_title_rot = 0, column_names_rot = 0, column_names_centered = T, 
+                                col = c("lightblue3", "lightblue1", "yellow", "orange", "orange3", "red"), 
+                                cluster_rows = row_dend_origin, row_dend_gp = gpar(font = "bold"),
+                                border = F, 
+                                column_km = 1, 
+                                row_split = 9, 
+                                show_column_dend = T, show_row_dend = T,
+                                width = ncol(data_AOI_origin_mat)*unit(25,"mm"), height = nrow(data_AOI_origin_mat)*unit(4.5,"mm"), 
+                                cell_fun = function(j, i, x, y, width, height, fill) {
+                                  grid.text(sprintf("%.2f", data_AOI_origin_mat[i, j]), x, y, gp = gpar(fontsize = 10))
+                                })
+
+RE_AOI_heatmap_origin_annotated
+
+cairo_pdf("Figure 5-Wheat Root Exudates Heatmap.pdf", width = 8, height = 6)
+print(RE_AOI_heatmap_origin_annotated)
+dev.off()
+
+```
+
+**Section 2 : Plot the PCA with the AOI% values**
+
+The PCA plot is used in Supplementary Figure S12 
+
+Step 1: Data input.
+
+```{r Data import and pre-processing, echo=TRUE}
+library(readxl)
+data_PCA <- read_xlsx("data.xlsx", sheet = 1)
+names(data_PCA) <- c("Exudate","N. ureae", "N. multiformis","N. viennensis","Ca. N. franklandianus","Origin")
+
+```
+
+Step 2: Data processing.
+
+```{r Data import and pre-processing, echo=TRUE}
+library(dplyr)
+data_mat <- data_PCA[, 2:5]
+
+library(vegan)
+
+data_standardised <- scale(data_mat, center = TRUE, scale = TRUE) 
+rownames(data_standardised) <- data_PCA$Exudate
+
+```
+
+Step 3: Perform the PCA.
+
+```{r Data import and pre-processing, echo=TRUE}
+
+library(factoextra)
+
+pca <- prcomp(data_standardised, scale. = TRUE)
+
+fviz_eig(pca)
+
+pca_data <- as.data.frame(pca$x)
+pca_data <- mutate(pca_data, Origin = data_PCA$Origin)
+
+REs_biplot <- fviz_pca_biplot(pca,
+                              habillage = as.factor(pca_data$Origin),
+                              addEllipses = F, ellipse.level = 0.95,
+                              title = "PCA bi-plot for Root Exudate Inhibitory pattern",
+                              legend.title = "Wheat phenotype origin",
+                              repel = T, 
+                              palette = c("red", "green4"))
+REs_biplot
+
+cairo_pdf("Figure S12-Wheat REs PCA.pdf", width = 8, height = 6, onefile = T)
+print(REs_biplot)
+dev.off()
+
+```
+
+This is the end of this script. 
+Please always remember to cite the authors of any code you use!
