@@ -1,5 +1,5 @@
 ---
-title: "AOM inhibition thresholds heatmap"
+title: "AOM inhibition thresholds heatmap and comparison with literature"
 author: "Alex Kanellopoulos"
 date: "2024-12-03"
 output: html_document
