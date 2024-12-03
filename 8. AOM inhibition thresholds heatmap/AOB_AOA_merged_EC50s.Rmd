@@ -1,0 +1,405 @@
+---
+title: "AOM inhibition thresholds heatmap"
+author: "Alex Kanellopoulos"
+date: "2024-12-03"
+output: html_document
+---
+
+Brief description: This is a script that includes all the necessary code to reproduce the results from the respective manuscript. 
+
+Step 1: Let's see all the necessary packages needed for the analysis and load them. If they are not installed, we will install them first. 
+
+```{r Library Installation and Loading, echo=TRUE, message=FALSE, warning=FALSE}
+# Here we store the necessary packages in the necessary_packages variable
+necessary_packages <- c("readxl","viridis","scales","dplyr","ggplot2","agricolae","sicegar","patchwork","gridExtra","rstatix", "tibble")
+
+# Here we check if the necessary packages are installed. If not, R installs them 
+if (!requireNamespace(necessary_packages, quietly = TRUE)) {
+  install.packages(necessary_packages)
+}
+
+# Here, for every package included in the necessary_packages variable, R will load it. The character.only = TRUE ensures that library() will try to interpret the package names as characters (as it needs for it to work) 
+for (package in necessary_packages) {
+  library(package, character.only = TRUE)
+}
+```
+
+**Section 1 : Plot the heatmap with the EC50 values**
+
+The heatmap is used in Figure 4 
+
+Step 1: Data input.
+
+```{r Data import and pre-processing, echo=TRUE}
+library(readxl)
+data <- read_xlsx("AOB_AOA_merged_EC50s.xlsx", sheet = 1)
+names(data) <- c("Compound","N. multiformis","N. ureae","N. communis","Ca. N. franklandianus","N. viennensis")
+
+```
+
+Step 2: Data processing
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+compounds <- data$Compound
+data_EC50 <- data[,-1]
+
+
+data_EC50_mat <- as.matrix(data_EC50)
+col_to_row_names <- compounds
+rownames(data_EC50_mat) <- col_to_row_names
+
+# Scale the data to reveal the differences
+data_EC50_mat_scaled <- log(data_EC50_mat, 10)
+
+
+```
+
+Step 3: Create the heatmap
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+library(ComplexHeatmap)
+library(dendextend)
+row_dend <- as.dendrogram(hclust(dist(data_EC50_mat, method = "euclidean")))
+row_dend <- colour_branches(row_dend, k = 6) 
+column_dend <- as.dendrogram(hclust(dist(data_EC50_mat, method = "euclidean")))
+column_dend <- colour_branches(column_dend, k = 5)
+
+EC50_complex_heatmap <- Heatmap(data_EC50_mat_scaled, name = "log(10) EC50 (μM)", 
+                                column_title = "AOM species", column_title_side = "bottom", column_title_gp = gpar(fontsize = 16), column_dend_side = "bottom",
+                                row_title = "Compound", row_names_side = "left",  row_names_gp = gpar(fontsize = 12),   row_dend_width = unit(10,"mm"), row_title_gp = gpar(fontsize = 16),
+                                column_title_rot = 0, column_names_rot = 0, column_names_centered = T, column_names_gp = gpar(fontsize = 9),
+                                col = c("red4", "red","orange", "yellow2", "lightblue"), 
+                                cluster_rows = row_dend, row_dend_gp = gpar(font = "bold"),
+                                border = F, 
+                                column_km = 1, 
+                                show_column_dend = T,
+                                width = ncol(data_EC50_mat)*unit(25,"mm"), height = nrow(data_EC50_mat)*unit(4.5,"mm"), 
+                                cell_fun = function(j, i, x, y, width, height, fill) {
+                                  grid.text(sprintf("%.2f", data_EC50_mat[i, j]), x, y, gp = gpar(fontsize = 10))
+                                })
+
+
+EC50_complex_heatmap
+
+cairo_pdf("Figure 4-AOM_EC50s_heatmap_log.pdf", width = 8, height = 4)
+print(EC50_complex_heatmap)
+dev.off()
+
+```
+
+**Section 2: Compare N. multiformis EC50 values with literature**
+
+The plots are used in Supplementary Figure 9 
+
+Step 1: Data input.
+
+```{r Data import and pre-processing, echo=TRUE}
+library(readxl)
+data_NMUL <- read_xlsx("AOB_AOA_merged_EC50s.xlsx", sheet = 3)
+names(data_NMUL) <- c("Compound", "EC50_LBC", "SE_LBC", "EC50_FTS", "SE_FTS")
+view(data_NMUL)
+
+```
+
+Step 2: Check the correlation through a linear regression plot with the non-transformed values and also the log(10)-transformed values.
+
+```{r Data import and pre-processing, echo=TRUE}
+
+# Non-transformed values
+linear_regression_EC50_NMUL <- summary(lm(EC50_FTS~EC50_LBC, data_NMUL))
+linear_regression_EC50_NMUL
+
+line_plot_EC50_NMUL <- ggplot(data_NMUL, aes(x = EC50_LBC, y = EC50_FTS)) + geom_point(size = 2) +
+  theme_light() + 
+  labs(x = "Liquid Batch Cultures EC50 (μM)", y = "Fast - Track System EC50 (μM)") + 
+  theme(axis.title = element_text(size = 24), axis.text = element_text(size = 20), legend.title = element_text(size = 16), legend.text = element_text(size = 20)) + geom_errorbar(aes(ymin = EC50_FTS - SE_FTS, ymax = EC50_FTS + SE_FTS)) + 
+  geom_errorbar(aes(xmin = EC50_LBC - SE_LBC, xmax = EC50_LBC + SE_LBC)) + geom_smooth(method = lm, linetype = "dashed", linewidth = 0.6, se = T) + 
+  geom_point(aes(colour = Compound)) +   
+  geom_text(x = 0, y = -150, label = paste("R - squared =", round(linear_regression_EC50$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
+  geom_text(x = 0, y = -200, label = paste("Slope =", round(linear_regression_EC50$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
+
+# Log(10)-transformed values 
+data_NMUL_log10 <- mutate(data_NMUL, EC50_LBC = log10(EC50_LBC), SE_LBC = log10(SE_LBC), EC50_FTS = log10(EC50_FTS), SE_FTS = log10(SE_FTS))
+
+linear_regression_logEC50_NMUL <- summary(lm(EC50_FTS~EC50_LBC, data_NMUL_log10))
+linear_regression_logEC50_NMUL
+
+line_plot_EC50_log10_NMUL <- ggplot(data_NMUL_log10, aes(x = EC50_LBC, y = EC50_FTS)) + 
+  geom_point(size = 2.5) + 
+  theme_light() + 
+  labs(x = "log10 Liquid Batch Cultures EC50 (μM)", y = "log10 Fast - Track System EC50 (μM)") +
+  theme(axis.title = element_text(size = 24), axis.text = element_text(size = 20), legend.title = element_text(size = 16), legend.text = element_text(size = 20)) + geom_smooth(method = lm, linetype = "dashed", linewidth = 1, se = T) + geom_point(aes(colour = Compound)) +   
+  geom_text(x = 0, y = -0.63, label = paste("R - squared =", round(linear_regression_logEC50$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
+  geom_text(x = 0, y = -0.83, label = paste("Slope =", round(linear_regression_logEC50$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
+
+```
+
+Step 3: Compare with a 95% confidence interval the EC50 values of the fast track system to literature
+
+```{r Data import and pre-processing, echo=TRUE}
+
+# For Nitrapyrin and DMPP (EC50 approx. 1 μM) 
+data_EC50_compare_NMUL <- read_excel("AOB_AOA_merged_EC50s.xlsx", sheet = 4, col_names = TRUE)
+names(data_EC50_compare_NMUL) <- c("Compound", "Approach", "EC50", "SE")
+View(data_EC50_compare_NMUL)
+
+legend_order <- c("Liquid Batch Cultures", "Fast - Track System")
+
+data_EC50_compare_DMPP_NP_NMUL <- data_EC50_compare_NMUL[1:4,]
+
+EC50_compare_plot_DMPP_NP_NMUL <- ggplot(data_EC50_compare_DMPP_NP_NMUL, aes(x = Compound, y = EC50)) + 
+  theme_light() + 
+  geom_point(aes(colour = Approach)) + 
+  geom_errorbar(aes(ymin = EC50 - SE, ymax = EC50 + SE, colour = Approach, width = 0.7)) + 
+  geom_errorbar(aes(ymin = EC50 - 1.96 * SE, ymax = EC50 + 1.96 * SE, colour = Approach, width = 0.3)) + 
+  coord_flip() + 
+  theme(axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 20), legend.title = element_text(size = 20)) + 
+  labs(y = "EC50 (μM)", x = "Compound") + 
+  scale_color_manual(values = c("Liquid Batch Cultures" = "blue", "Fast - Track System" = "green4"), breaks = legend_order, labels = legend_order) + 
+  scale_x_discrete(limits = rev(data_EC50_compare_DMPP_NP_NMUL$Compound))
+
+# For Ethoxyquin, MHPP, Sakuranetin, 1,9-decanediol (EC50 approx. 100 - 1000 μM) 
+data_EC50_compare_EQ_MHPP_SKNT_DD_NMUL <- data_EC50_compare_NMUL[-(1:4),]
+
+EC50_compare_plot_EQ_MHPP_SKNT_DD_NMUL <- ggplot(data_EC50_compare_EQ_MHPP_SKNT_DD_NMUL, aes(x = Compound, y = EC50)) + 
+  theme_light() + 
+  geom_point(aes(colour = Approach)) + 
+  geom_errorbar(aes(ymin = EC50 - SE, ymax = EC50 + SE, colour = Approach, width = 0.7)) + 
+  geom_errorbar(aes(ymin = EC50 - 1.96 * SE, ymax = EC50 + 1.96 * SE, colour = Approach, width = 0.3)) + 
+  coord_flip() + 
+  theme(axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 20), legend.title = element_text(size = 20)) + 
+  labs(y = "EC50 (μM)", x = "Compound") + 
+  scale_color_manual(values = c("Liquid Batch Cultures" = "blue", "Fast - Track System" = "green4"), breaks = legend_order, labels = legend_order) + 
+  scale_x_discrete(limits = rev(data_EC50_compare_EQ_MHPP_SKNT_DD_NMUL$Compound))
+
+```
+
+Step 4: Generate the .pdf file
+
+```{r Data import and pre-processing, echo=TRUE, message=FALSE, warning=FALSE}
+
+patchwork_EC50_compare_NMUL <- (line_plot_EC50_NMUL + line_plot_EC50_log10_NMUL) / EC50_compare_plot_DMPP_NP_NMUL / EC50_compare_plot_EQ_MHPP_SKNT_DD_NMUL + plot_layout(ncol = 1, nrow = 3, heights = c(4,2,3))
+
+patchwork_EC50_compare_NMUL <- patchwork_EC50_compare_NMUL + plot_annotation(tag_levels = "A") & 
+  theme(plot.tag = element_text(size = 40)) 
+
+print(patchwork_EC50_compare_NMUL)
+
+cairo_pdf("Figure S9-NMUL_EC50_compare.pdf", onefile = T, height = 16, width = 18)
+patchwork_EC50_compare_NMUL
+dev.off()
+
+```
+
+**Section 3: Compare Ca. N. franklandianus EC50 values with literature**
+
+The plots are used in Supplementary Figure 10
+
+Step 1: Data input.
+
+```{r Data import and pre-processing, echo=TRUE}
+library(readxl)
+data_NF <- read_xlsx("AOB_AOA_merged_EC50s.xlsx", sheet = 5)
+names(data_NF) <- c("Compound", "EC50_LBC", "SE_LBC", "EC50_FTS", "SE_FTS")
+view(data_NF)
+
+```
+
+Step 2: Check the correlation through a linear regression plot with the non-transformed values and also the log(10)-transformed values.
+
+```{r Data import and pre-processing, echo=TRUE}
+
+# Non-transformed values
+linear_regression_EC50_NF <- summary(lm(EC50_FTS~EC50_LBC, data_NF))
+linear_regression_EC50_NF
+
+line_plot_EC50_NF <- ggplot(data_NF, aes(x = EC50_LBC, y = EC50_FTS)) + geom_point(size = 2) +
+  theme_light() + 
+  labs(x = "Liquid Batch Cultures EC50 (μM)", y = "Fast - Track System EC50 (μM)") + 
+  theme(axis.title = element_text(size = 24), axis.text = element_text(size = 20), legend.title = element_text(size = 16), legend.text = element_text(size = 20)) + geom_errorbar(aes(ymin = EC50_FTS - SE_FTS, ymax = EC50_FTS + SE_FTS)) + 
+  geom_errorbar(aes(xmin = EC50_LBC - SE_LBC, xmax = EC50_LBC + SE_LBC)) + geom_smooth(method = lm, linetype = "dashed", linewidth = 0.6, se = T) + 
+  geom_point(aes(colour = Compound)) +   
+  geom_text(x = 0, y = -1000, label = paste("R - squared =", round(linear_regression_EC50$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
+  geom_text(x = 0, y = -1500, label = paste("Slope =", round(linear_regression_EC50$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
+
+# Log(10)-transformed values 
+data_NF_log10 <- mutate(data_NF, EC50_LBC = log10(EC50_LBC), SE_LBC = log10(SE_LBC), EC50_FTS = log10(EC50_FTS), SE_FTS = log10(SE_FTS))
+
+linear_regression_logEC50_NF <- summary(lm(EC50_FTS~EC50_LBC, data_NF_log10))
+linear_regression_logEC50_NF
+
+line_plot_EC50_log10_NF <- ggplot(data_NF_log10, aes(x = EC50_LBC, y = EC50_FTS)) + 
+  geom_point(size = 2.5) + 
+  theme_light() + 
+  labs(x = "log10 Liquid Batch Cultures EC50 (μM)", y = "log10 Fast - Track System EC50 (μM)") +
+  theme(axis.title = element_text(size = 24), axis.text = element_text(size = 20), legend.title = element_text(size = 16), legend.text = element_text(size = 20)) + geom_smooth(method = lm, linetype = "dashed", linewidth = 1, se = T) + geom_point(aes(colour = Compound)) +   
+  geom_text(x = 0, y = 0.25, label = paste("R - squared =", round(linear_regression_logEC50$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
+  geom_text(x = 0, y = 0, label = paste("Slope =", round(linear_regression_logEC50$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
+
+```
+
+Step 3: Compare with a 95% confidence interval the EC50 values of the fast track system to literature
+
+```{r Data import and pre-processing, echo=TRUE}
+
+# For Nitrapyrin and DMPP (EC50 approx. 1 μM) 
+data_EC50_compare_NF <- read_excel("AOB_AOA_merged_EC50s.xlsx", sheet = 6, col_names = TRUE)
+names(data_EC50_compare_NF) <- c("Compound", "Approach", "EC50", "SE")
+View(data_EC50_compare_NF)
+
+legend_order <- c("Liquid Batch Cultures", "Fast - Track System")
+
+data_EC50_compare_NP_EQ_SKNT_NF <- data_EC50_compare_NF[c(3:6,9:10),]
+
+EC50_compare_plot_NP_EQ_SKNT_NF <- ggplot(data_EC50_compare_NP_EQ_SKNT_NF, aes(x = Compound, y = EC50)) + 
+  theme_light() + 
+  geom_point(aes(colour = Approach)) + 
+  geom_errorbar(aes(ymin = EC50 - SE, ymax = EC50 + SE, colour = Approach, width = 0.7)) + 
+  geom_errorbar(aes(ymin = EC50 - 1.96 * SE, ymax = EC50 + 1.96 * SE, colour = Approach, width = 0.3)) + 
+  coord_flip() + 
+  theme(axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 20), legend.title = element_text(size = 20)) + 
+  labs(y = "EC50 (μM)", x = "Compound") + 
+  scale_color_manual(values = c("Liquid Batch Cultures" = "blue", "Fast - Track System" = "green4"), breaks = legend_order, labels = legend_order) + 
+  scale_x_discrete(limits = rev(data_EC50_compare_NP_EQ_SKNT_NF$Compound))
+
+# For Ethoxyquin, MHPP, Sakuranetin, 1,9-decanediol (EC50 approx. 100 - 1000 μM) 
+data_EC50_compare_MHPP_SKNT_DD_NF <- data_EC50_compare_NF[-c(3:6,9:10),]
+
+EC50_compare_plot_MHPP_SKNT_DD_NF <- ggplot(data_EC50_compare_MHPP_SKNT_DD_NF, aes(x = Compound, y = EC50)) + 
+  theme_light() + 
+  geom_point(aes(colour = Approach)) + 
+  geom_errorbar(aes(ymin = EC50 - SE, ymax = EC50 + SE, colour = Approach, width = 0.7)) + 
+  geom_errorbar(aes(ymin = EC50 - 1.96 * SE, ymax = EC50 + 1.96 * SE, colour = Approach, width = 0.3)) + 
+  coord_flip() + 
+  theme(axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 20), legend.title = element_text(size = 20)) + 
+  labs(y = "EC50 (μM)", x = "Compound") + 
+  scale_color_manual(values = c("Liquid Batch Cultures" = "blue", "Fast - Track System" = "green4"), breaks = legend_order, labels = legend_order) + 
+  scale_x_discrete(limits = rev(data_EC50_compare_MHPP_SKNT_DD_NF$Compound))
+
+```
+
+Step 4: Generate the .pdf file
+
+```{r Data import and pre-processing, echo=TRUE, message=FALSE, warning=FALSE}
+
+patchwork_EC50_compare_NF <- (line_plot_EC50_NF + line_plot_EC50_log10_NF) / EC50_compare_plot_NP_EQ_SKNT_NF / EC50_compare_plot_MHPP_SKNT_DD_NF + plot_layout(ncol = 1, nrow = 3, heights = c(4,2,3))
+
+patchwork_EC50_compare_NF <- patchwork_EC50_compare_NF + plot_annotation(tag_levels = "A") & 
+  theme(plot.tag = element_text(size = 40)) 
+
+print(patchwork_EC50_compare_NF)
+
+cairo_pdf("Figure S10-NF_EC50_compare.pdf", onefile = T, height = 16, width = 18)
+patchwork_EC50_compare_NF
+dev.off()
+
+```
+
+**Section 4: Compare N. viennensis EC50 values with literature**
+
+The plots are used in Supplementary Figure 11
+
+Step 1: Data input.
+
+```{r Data import and pre-processing, echo=TRUE}
+library(readxl)
+data_NVE <- read_xlsx("AOB_AOA_merged_EC50s.xlsx", sheet = 7)
+data_NVE <- data_NVE[-c(1,3),]
+names(data_NVE) <- c("Compound", "EC50_LBC", "SE_LBC", "EC50_FTS", "SE_FTS")
+view(data_NVE)
+
+```
+
+Step 2: Check the correlation through a linear regression plot with the non-transformed values and also the log(10)-transformed values.
+
+```{r Data import and pre-processing, echo=TRUE}
+
+# Non-transformed values
+linear_regression_EC50_NVE <- summary(lm(EC50_FTS~EC50_LBC, data_NVE))
+linear_regression_EC50_NVE
+
+line_plot_EC50_NVE <- ggplot(data_NVE, aes(x = EC50_LBC, y = EC50_FTS)) + geom_point(size = 2) +
+  theme_light() + 
+  labs(x = "Liquid Batch Cultures EC50 (μM)", y = "Fast - Track System EC50 (μM)") + 
+  theme(axis.title = element_text(size = 24), axis.text = element_text(size = 20), legend.title = element_text(size = 16), legend.text = element_text(size = 20)) + geom_errorbar(aes(ymin = EC50_FTS - SE_FTS, ymax = EC50_FTS + SE_FTS)) + 
+  geom_errorbar(aes(xmin = EC50_LBC - SE_LBC, xmax = EC50_LBC + SE_LBC)) + geom_smooth(method = lm, linetype = "dashed", linewidth = 0.6, se = T) + 
+  geom_point(aes(colour = Compound)) +   
+  geom_text(x = 200, y = -1000, label = paste("R - squared =", round(linear_regression_EC50$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
+  geom_text(x = 200, y = -1500, label = paste("Slope =", round(linear_regression_EC50$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
+
+# Log(10)-transformed values 
+data_NVE_log10 <- mutate(data_NVE, EC50_LBC = log10(EC50_LBC), SE_LBC = log10(SE_LBC), EC50_FTS = log10(EC50_FTS), SE_FTS = log10(SE_FTS))
+
+linear_regression_logEC50_NVE <- summary(lm(EC50_FTS~EC50_LBC, data_NVE_log10))
+linear_regression_logEC50_NVE
+
+line_plot_EC50_log10_NVE <- ggplot(data_NVE_log10, aes(x = EC50_LBC, y = EC50_FTS)) + 
+  geom_point(size = 2.5) + 
+  theme_light() + 
+  labs(x = "log10 Liquid Batch Cultures EC50 (μM)", y = "log10 Fast - Track System EC50 (μM)") +
+  theme(axis.title = element_text(size = 24), axis.text = element_text(size = 20), legend.title = element_text(size = 16), legend.text = element_text(size = 20)) + geom_smooth(method = lm, linetype = "dashed", linewidth = 1, se = T) + geom_point(aes(colour = Compound)) +   
+  geom_text(x = 2, y = 0.8, label = paste("R - squared =", round(linear_regression_logEC50$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
+  geom_text(x = 2, y = 0.6, label = paste("Slope =", round(linear_regression_logEC50$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
+
+```
+
+Step 3: Compare with a 95% confidence interval the EC50 values of the fast track system to literature
+
+```{r Data import and pre-processing, echo=TRUE}
+
+# For Nitrapyrin and DMPP (EC50 approx. 1 μM) 
+data_EC50_compare_NVE <- read_excel("AOB_AOA_merged_EC50s.xlsx", sheet = 8, col_names = TRUE)
+names(data_EC50_compare_NVE) <- c("Compound", "Approach", "EC50", "SE")
+View(data_EC50_compare_NVE)
+
+legend_order <- c("Liquid Batch Cultures", "Fast - Track System")
+
+data_EC50_compare_NP_EQ_SKNT_NVE <- data_EC50_compare_NVE[c(3:6,9:10),]
+
+EC50_compare_plot_NP_EQ_SKNT_NVE <- ggplot(data_EC50_compare_NP_EQ_SKNT_NVE, aes(x = Compound, y = EC50)) + 
+  theme_light() + 
+  geom_point(aes(colour = Approach)) + 
+  geom_errorbar(aes(ymin = EC50 - SE, ymax = EC50 + SE, colour = Approach, width = 0.7)) + 
+  geom_errorbar(aes(ymin = EC50 - 1.96 * SE, ymax = EC50 + 1.96 * SE, colour = Approach, width = 0.3)) + 
+  coord_flip() + 
+  theme(axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 20), legend.title = element_text(size = 20)) + 
+  labs(y = "EC50 (μM)", x = "Compound") + 
+  scale_color_manual(values = c("Liquid Batch Cultures" = "blue", "Fast - Track System" = "green4"), breaks = legend_order, labels = legend_order) + 
+  scale_x_discrete(limits = rev(data_EC50_compare_NP_EQ_SKNT_NVE$Compound))
+
+# For Ethoxyquin, MHPP, Sakuranetin, 1,9-decanediol (EC50 approx. 100 - 1000 μM) 
+data_EC50_compare_MHPP_SKNT_DD_NVE <- data_EC50_compare_NVE[-c(3:6,9:10),]
+
+EC50_compare_plot_MHPP_SKNT_DD_NVE <- ggplot(data_EC50_compare_MHPP_SKNT_DD_NVE, aes(x = Compound, y = EC50)) + 
+  theme_light() + 
+  geom_point(aes(colour = Approach)) + 
+  geom_errorbar(aes(ymin = EC50 - SE, ymax = EC50 + SE, colour = Approach, width = 0.7)) + 
+  geom_errorbar(aes(ymin = EC50 - 1.96 * SE, ymax = EC50 + 1.96 * SE, colour = Approach, width = 0.3)) + 
+  coord_flip() + 
+  theme(axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 20), legend.title = element_text(size = 20)) + 
+  labs(y = "EC50 (μM)", x = "Compound") + 
+  scale_color_manual(values = c("Liquid Batch Cultures" = "blue", "Fast - Track System" = "green4"), breaks = legend_order, labels = legend_order) + 
+  scale_x_discrete(limits = rev(data_EC50_compare_MHPP_SKNT_DD_NVE$Compound))
+
+```
+
+Step 4: Generate the .pdf file
+
+```{r Data import and pre-processing, echo=TRUE, message=FALSE, warning=FALSE}
+
+patchwork_EC50_compare_NVE <- (line_plot_EC50_NVE + line_plot_EC50_log10_NVE) / EC50_compare_plot_NP_EQ_SKNT_NVE / EC50_compare_plot_MHPP_SKNT_DD_NVE + plot_layout(ncol = 1, nrow = 3, heights = c(4,2,3))
+
+patchwork_EC50_compare_NVE <- patchwork_EC50_compare_NVE + plot_annotation(tag_levels = "A") & 
+  theme(plot.tag = element_text(size = 40)) 
+
+print(patchwork_EC50_compare_NVE)
+
+cairo_pdf("Figure S11-NVE_EC50_compare.pdf", onefile = T, height = 16, width = 18)
+patchwork_EC50_compare_NVE
+dev.off()
+
+```
+This is the end of this script. 
+Please always remember to cite the authors of any code you use!
