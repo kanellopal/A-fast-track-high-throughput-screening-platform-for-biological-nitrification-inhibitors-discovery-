@@ -26,7 +26,7 @@ for (package in necessary_packages) {
 
 **Section 1 : N. ureae routine culture growth curve**
 
-The μmax can be found in Supplementary Table S5.The μmax calculation is shown in Supplementary Figure S4C. The routine culture growth model curve is used in Supplementary Figure S1C  
+The μmax can be found in Supplementary Table S5.The μmax calculation is shown in Supplementary Figure S4C. The routine culture growth model curve is used in Supplementary Figure S2C  
 
 Step 1: Data input.
 
