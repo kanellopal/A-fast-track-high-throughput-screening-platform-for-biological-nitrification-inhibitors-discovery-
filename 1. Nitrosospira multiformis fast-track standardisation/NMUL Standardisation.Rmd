@@ -11,7 +11,7 @@ Step 1: Let's see all the necessary packages needed for the analysis and load th
 
 ```{r Library Installation and Loading, echo=TRUE, message=FALSE, warning=FALSE}
 # Here we store the necessary packages in the necessary_packages variable
-necessary_packages <- c("readxl","viridis","scales","dplyr","ggplot2","agricolae","sicegar","patchwork","gridExtra","rstatix", "tibble")
+necessary_packages <- c("readxl","sicegar","ggplot2","viridis","dplyr","SciViews","rstatix","agricolae","tibble","patchwork","scales")
 
 # Here we check if the necessary packages are installed. If not, R installs them 
 if (!requireNamespace(necessary_packages, quietly = TRUE)) {
@@ -26,12 +26,12 @@ for (package in necessary_packages) {
 
 **Section 1 : N. multiformis routine culture growth curve**
 
-The μmax can be found in Supplementary Table S5. The routine culture growth model curve is used in Supplementary Figure S1C  
+The μmax can be found in Supplementary Table S5. The μmax calculation is shown in Supplementary Figure S4A. The routine culture growth model curve is used in Supplementary Figure S1C  
 
 Step 1: Data input.
 
 ```{r Data import and pre-processing, echo=TRUE}
-# Here, we create an R data frame named with the data
+# Here, we create an R data frame with the data
 library(readxl)
 data_routine <- read_excel("NMUL Standardisation.xlsx", sheet = 1, col_names = TRUE)
 # We can change the names of the columns to more R-friendly names
@@ -45,7 +45,6 @@ glimpse(data_routine)
 Step 2: We can use a single - sigmoidal model and fit our data in this in order to obtain an equation describing the culture growth (in this case synonymous with nitrite production) over time
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-# Let's prepare the data 
 # We want to keep only the 2 columns containing the Time and Nitrite values
 data_model <- data.frame(data_routine$Time, data_routine$Nitrite)
 # We change the names of the two columns to names required by the "sicegar" package
@@ -59,21 +58,9 @@ library(sicegar)
 fitObj_sm <- fitAndCategorize(dataInput = data_model,
                               threshold_t0_max_int = 100, 
                               threshold_minimum_for_intensity_maximum = 0.02)
-# And we can prepare a plot of the sigmoidal curve
-growth_sigmoid_model_plot <- figureModelCurves(dataInput = fitObj_sm$normalizedInput, 
-                                               sigmoidalFitVector = fitObj_sm$sigmoidalModel,
-                                               showParameterRelatedLines = T)
-growth_sigmoid_model_plot <- growth_sigmoid_model_plot + 
-  labs(x = "Time (Hours)", y = "[Nitrite] (μM)") + 
-  theme(axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 20), legend.title = element_text(size = 20)) + 
-  scale_y_continuous(breaks = seq(0,max(data_routine_line_plot$Mean + 100), by = max(data_routine_line_plot$Mean)/5)) + ylim(0,max(data_routine_line_plot$Mean) + 100) + 
-  annotate("text", x = 150, y = 110, label = paste("I_max =", round(fitObj_sm$sigmoidalModel$maximum_Estimate, 2)), size = 6, hjust = 0) +
-  annotate("text", x = 150, y = 60, label = paste("α_mid =", round(fitObj_sm$sigmoidalModel$slopeParam_Estimate, 3)), size = 6, hjust = 0) +
-  annotate("text", x = 150, y = 10, label = paste("t_mid =", round(fitObj_sm$sigmoidalModel$midPoint_Estimate, 2)), size = 6, hjust = 0)
-
-print(growth_sigmoid_model_plot)
 
 ```
+
 Step 3: We can extract the desired model parameters
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
@@ -87,13 +74,13 @@ Step 4: We can overlay the routine cultures growth curves with the model. This w
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Prepare the data
 data_routine_line_plot <- filter(data_routine, !is.na(Mean))
-# Prepare the model equation
+# Prepare the sigmoidal model equation using the model parameters
 model_curve <- function(t) {I_max/(1+exp(-a*(t-t_mid)))}
-# Prepare the legend
+# Prepare the legend order and short the generations 
 legend_order <- c("1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", 
                   "10th", "11th", "12th", "13th", "14th", "15th", "16th", "17th")
 data_routine_line_plot$Generation <- factor(data_routine_line_plot$Generation, levels = legend_order)
-# We will use the same activity plot as before but overlay the model curve
+# We will use an activity plot but overlay the model curve
 library(ggplot2)
 library(viridis)
 activity_line_plot_with_model <- ggplot(data_routine_line_plot, aes(x = Time, y = Mean)) + 
@@ -112,7 +99,7 @@ activity_line_plot_with_model <- activity_line_plot_with_model +
 print(activity_line_plot_with_model)
 ```
 
-Step 5: We can calculate the maximum specific growth rate from the activity data. Briefly, we isolate the data from the exponential growth phase (50h - 110h) and we perform a semi - logarithmic transformation, using the natural logarithm (ln) to transform the nitrite values 
+Step 5: We can calculate the maximum specific growth rate from the activity data. Briefly, we isolate the data from the exponential growth phase (60h - 110h) and we perform a semi - logarithmic transformation, using the natural logarithm (ln) to transform the nitrite values 
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 # We assume that the exponential growth phase lasts from 60 h - 110 h, so we isolate these data
@@ -122,12 +109,11 @@ data_exponential <- filter(data_routine, between(Time, 60, 110))
 # Prepare the dataframe 
 data_exponential$Generation <- factor(data_exponential$Generation, levels = legend_order)
 
-
 # We transform the Nitrite values 
 library(SciViews)
 data_exponential_ln <- mutate(data_exponential, Nitrite = ln(Nitrite))
 
-# We will evaluate the quality of th elinear regression
+# We will evaluate the quality of the linear regression
 # The maximum specific growth rate is congruent with the slope coefficient of the linear regression
 linear_regression_report <- summary(lm(Nitrite ~ Time, data = data_exponential_ln))
 μmax <- round(linear_regression_report$coefficients[2,1],3)
@@ -149,6 +135,7 @@ line_plot_exponential_ln <- ggplot(data_exponential_ln, aes(x = Time, y = Nitrit
 
 print(line_plot_exponential_ln)
 
+# Save the figure 
 ggsave("Figure S4A-NMUL maximum specific growth rate.pdf", plot = line_plot_exponential_ln, device = "pdf", height = 10, width = 10)
 
 ```
@@ -156,7 +143,7 @@ ggsave("Figure S4A-NMUL maximum specific growth rate.pdf", plot = line_plot_expo
 
 **Section 2 : N. multiformis fast-track cultures cell density data**
 
-The boxplots produced can be found in Supplementary Figure S1A and Supplementary Figure S1B. Cell density data are found in Supplementary Table S4 
+The boxplots produced can be found in Supplementary Figures S1A and S1B. Cell density data are found in Supplementary Table S4 
 
 Step 1: Data input. 
 
@@ -167,6 +154,7 @@ data_1D_DNA <- read_excel("NMUL Standardisation.xlsx", sheet = 4, col_names = TR
 names(data_1D_DNA) <- c("Step", "Replicate","Repetition", "Cells", "Mean", "St.Dev")
 glimpse(data_1D_DNA)
 
+# we create the legend order with the different steps of the harvesting procedure and short the Step column of the dataframe
 legend_order_DNA <- c("Routine Culture Initial", "Routine Culture Final", "Inocula after cell harvesting", "Merged Inoculum", "Concentrated Culture Initial")
 
 data_1D_DNA$Step <- factor(data_1D_DNA$Step, levels = legend_order_DNA)
@@ -177,14 +165,19 @@ data_1D_DNA$Step <- factor(data_1D_DNA$Step, levels = legend_order_DNA)
 Step 2: Statistical analysis
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-#### Statistical analysis on the DNA data ----
 library(rstatix)
+library(agricolae)
+library(tibble)
+
+# Shapiro distribution test 
 shapiro_DNA <- shapiro_test(data_1D_DNA, Cells)
 shapiro_DNA
 
+# Kruskal-Wallis test
 kruskal_DNA <- with(data = data_1D_DNA, kruskal(Cells, Step, p.adj = "bonferroni", group = T, alpha = 0.05))
 print(kruskal_DNA$groups)
 
+# Short the Kruskal-Wallis results by the legend order created for the steps of the harvesting procedure so the groups will be assigned correctly to the respective boxplot
 kruskal_results <- data.frame(kruskal_DNA$groups)
 kruskal_results <- rownames_to_column(kruskal_results, var = "Step")
 treatment_order <- legend_order_DNA
@@ -201,7 +194,7 @@ View(data_1D_DNA_means)
 ```
 
 
-Step 3: Prepare the boxplot  
+Step 3: Prepare the boxplot (Figure S1A)
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 library(ggplot2)
@@ -219,7 +212,7 @@ print(box_plot_DNA)
 ```
 
 
-Step 4: Prepare the lineplot  
+Step 4: Prepare the lineplot (Figure S1B)
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 library(ggplot2)
@@ -244,7 +237,7 @@ print(line_plots_DNA)
 
 **Section 3 : N. multiformis fast-track cultures cell activity curves**
 
-The activity rate can be found in Supplementary Table S5. The fast-track culture activity plot is used in Supplementary Figure S1C  
+The activity rate can be found in Supplementary Table S5 and its calculation is shown in Supplementary Figure 4B. The fast-track culture activity plot is used in Supplementary Figure S1C  
 
 Step 1: Data input.
 
@@ -262,7 +255,7 @@ Step 2: Merge the fast-track cultures activity curves with the routine culture g
 
 ```{r Data import and pre-processing, echo=TRUE}
 # Prepare the legend order
-legend_order_activity <- c("1st","2nd","3rd", "4th")
+legend_order_activity <- c("1st","2nd","3rd","4th")
 
 line_plot_merged <- ggplot(data_1D_activity, aes(x = Time, y = Nitrite)) + 
   geom_point(aes(colour = Repetition), size = 2) + 
@@ -280,7 +273,7 @@ line_plot_merged <- line_plot_merged +
 print(line_plot_merged)
 ```
 
-Step 3: Print the whole Figure
+Step 3: Print the whole Figure (Supplementary Figure S1)
 
 ```{r Data import and pre-processing, echo=TRUE}
 # Prepare the patchwork
@@ -294,7 +287,7 @@ print(patchwork)
 dev.off()
 ```
 
-Step 4: Determine the activity rate of the fast-track cultures in a similar way to the routine cultures μmax
+Step 4: Determine the activity rate of the fast-track cultures in a similar way to the routine cultures μmax (see Section 1 - Step 5 for guides)
 
 ```{r Data import and pre-processing, echo=TRUE}
 
