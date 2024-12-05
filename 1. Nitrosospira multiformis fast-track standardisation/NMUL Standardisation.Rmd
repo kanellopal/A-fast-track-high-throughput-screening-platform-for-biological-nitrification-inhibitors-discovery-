@@ -219,8 +219,9 @@ library(ggplot2)
 data_1D_DNA_lineplot <- filter(data_1D_DNA, !is.na(data_1D_DNA$Mean))
 
 line_plots_DNA <- ggplot(data_1D_DNA_lineplot, aes(x = factor(Step), y = Mean, group = Repetition)) + geom_point(aes(colour = Repetition)) + 
-  theme_light() + labs(title = "Nitrosospira multiformis Cell Density Determination",subtitle = "Comparison between consecutive attempts", x = "Sample", y = "Cell Density (cells/mL)") + 
-  theme(plot.title = element_blank(), axis.title = element_text(size = 40), axis.text = element_text(size = 36), legend.text = element_text(size = 32), legend.title = element_text(size = 36), plot.subtitle = element_blank(), axis.text.x=element_text(angle = 45, hjust = 1), legend.position = "right") + 
+  theme_light() + 
+  labs(title = "Nitrosospira multiformis Cell Density Determination", subtitle = "Comparison between consecutive attempts", x = "Sample", y = "Cell Density (cells/mL)") + 
+  theme(axis.title = element_text(size = 40), axis.text = element_text(size = 36), legend.text = element_text(size = 32), legend.title = element_text(size = 36), axis.text.x=element_text(angle = 45, hjust = 1), plot.title = element_text(size = 20), plot.subtitle = element_text(size = 18), legend.position = "right") + 
   scale_x_discrete(limits = legend_order_DNA) + 
   theme(axis.text.x=element_text(angle = 45, hjust = 1)) + 
   scale_y_continuous(breaks = seq(1e+07, 7e+08, by = 6e+07)) + 
@@ -232,6 +233,7 @@ line_plots_DNA <- line_plots_DNA +
   geom_errorbar(aes(ymin = Mean - St.Dev, ymax = Mean + St.Dev, colour = Repetition), width = 0.6)
 
 print(line_plots_DNA)
+
 ```
 
 
