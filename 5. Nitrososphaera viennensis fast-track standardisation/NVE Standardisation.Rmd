@@ -11,7 +11,7 @@ Step 1: Let's see all the necessary packages needed for the analysis and load th
 
 ```{r Library Installation and Loading, echo=TRUE, message=FALSE, warning=FALSE}
 # Here we store the necessary packages in the necessary_packages variable
-necessary_packages <- c("readxl","viridis","scales","dplyr","ggplot2","agricolae","sicegar","patchwork","gridExtra","rstatix", "tibble")
+necessary_packages <- c("readxl","dplyr","ggplot2")
 
 # Here we check if the necessary packages are installed. If not, R installs them 
 if (!requireNamespace(necessary_packages, quietly = TRUE)) {
@@ -33,6 +33,7 @@ Step 1: Data input.
 ```{r Data import and pre-processing, echo=TRUE}
 # Here, we create an R data frame named with the data
 library(readxl)
+library(dplyr)
 data_routine <- read_excel("NVE Standardisation.xlsx", sheet = 1, col_names = TRUE)
 # We can change the names of the columns to more R-friendly names
 names(data_routine) <- c("Time", "Nitrite", "Mean_Nitrite", "St.Dev_Nitrite", "Cells", "Mean_Cells","St.Dev_Cells")
@@ -51,6 +52,7 @@ cairo_pdf("Figure S6B-NVE_nitrite_amoA_congruence.pdf", width = 10, height = 8)
 # Set plot parameters
 par(mar=c(5, 4, 4, 6) + 0.1)
 
+# This is the ntrite production curve
 plot(filter(data_routine, !is.na(Mean_Nitrite))$Time, filter(data_routine, !is.na(Mean_Nitrite))$Mean_Nitrite, pch=16, axes=FALSE, ylim=c(0,2100), xlab="", ylab="", 
      type="b",col="black", main="Nitrososphaera viennensis - Culture activity compared to flow cytometry data")
 axis(2, ylim=c(0,2100),col="black",las=1)  
@@ -58,6 +60,8 @@ mtext("[Nitrite] (μM)",side=2,line=3)
 box()
 
 par(new=TRUE)
+
+# This is the amoA abundance curve printed in the same plot 
 
 plot(filter(data_routine, !is.na(Mean_Nitrite))$Time, filter(data_routine, !is.na(Mean_Nitrite))$Mean_Cells,  xlab="", ylab="", ylim=c(4E+04,3.5E+07), 
      axes=FALSE, type="b", col="red")
@@ -68,7 +72,6 @@ axis(1,pretty(range(filter(data_routine, !is.na(Mean_Nitrite))$Time),10))
 mtext("Time (Hours)",side=1,col="black",line=2.5)  
 
 dev.off()
-# Export the plot
 
 ```
 
@@ -94,6 +97,7 @@ Step 2: Create the plot by overlaying the fast-track culture activity curves wit
 
 ```{r Data import and pre-processing, echo=TRUE}
 # Create the plot 
+library(ggplot2)
 line_plot_FTS_vs_routine_activity_NVE <- ggplot(data_1D, aes(x = Time, y = Nitrite)) +
   geom_point(aes(colour = Repetition), size = 2) + 
   geom_smooth(aes(colour = Repetition), method = lm, linetype = "dashed", linewidth = 2, se = F, fullrange = T) + 
@@ -101,9 +105,10 @@ line_plot_FTS_vs_routine_activity_NVE <- ggplot(data_1D, aes(x = Time, y = Nitri
   labs(title = "Nitrososphaera viennensis Fast - Track Culture", subtitle = "Linear Regression compared to the growth model for the Routine culture", x = "Time (Hours)", y = "[Nitrite] (μM)") + 
   scale_y_continuous(breaks = seq(from = 0, to = 2400, by = 300), limits = c(0,2400)) +
   scale_x_continuous(breaks = seq(from = 0, to = 250, by = 50), limits = c(0,250)) +
-  theme(legend.position = "bottom", legend.box = "vertical", axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 20), legend.title = element_text(size = 20)) + scale_color_manual(values = c("1st" = "#840084", "2nd" = "#b200b2", "3rd" = "#ff6bff", "Routine Culture" = "#006b6b"), name = "Culture")
+  theme(legend.position = "bottom", legend.box = "vertical", axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 20), legend.title = element_text(size = 20), plot.title = element_text(size = 20), plot.subtitle = element_text(size = 18)) + 
+    scale_color_manual(values = c("1st" = "#840084", "2nd" = "#b200b2", "3rd" = "#ff6bff", "Routine Culture" = "#006b6b"), name = "Culture")
 
-line_plot_FTS_vs_routine_activity_NVE <- line_plot_FTS_vs_routine_activity_NVE + 
+  line_plot_FTS_vs_routine_activity_NVE <- line_plot_FTS_vs_routine_activity_NVE + 
   geom_point(data = data_routine, aes(x = Time, y = Mean_Nitrite)) + geom_line(data = filter(data_routine, !is.na(Mean_Nitrite)), aes(x = Time, y = Mean_Nitrite, colour = "Routine Culture"), linewidth = 1) 
 
 line_plot_FTS_vs_routine_activity_NVE <- line_plot_FTS_vs_routine_activity_NVE + 
