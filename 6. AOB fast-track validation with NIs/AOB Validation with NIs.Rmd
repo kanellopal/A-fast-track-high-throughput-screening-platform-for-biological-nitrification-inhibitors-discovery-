@@ -154,7 +154,7 @@ remove(dataframe_list_NCOM_filtered)
 
 ```
 
-Step 3: Prepare the activity plots
+Step 3: Prepare the activity plots. These are found in Figure 2 and Supplementary Figure S7.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 
