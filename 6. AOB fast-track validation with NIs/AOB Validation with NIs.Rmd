@@ -525,9 +525,8 @@ legend_order <- doses
 # We will create a plot for the effects of the different doses on Nitrite
 # We will use Time in the x-axis and Nitrite in the y-axis and we will colour depending on the different Dose.
 # We will use a light theme
-# We will put a tilte and rename the axis and the legend
+# We will put a title and rename the axis and the legend
 # We will customise the fonts of the labels and the titles and put the legend in the bottom
-# We will se the y axis from 0 to 1000 with steps of 200
 # We will use geom_sooth to create our linear regression curves (method = lm) with a dashed line and width of 0.6 without showing the standard error
 linear_regression_plot <- ggplot(data, aes(x = Time, y = Nitrite, colour = factor(Dose))) + 
   theme_light() + 
@@ -689,9 +688,8 @@ legend_order <- doses
 # We will create a plot for the effects of the different doses on Nitrite
 # We will use Time in the x-axis and Nitrite in the y-axis and we will colour depending on the different Dose.
 # We will use a light theme
-# We will put a tilte and rename the axis and the legend
+# We will put a title and rename the axis and the legend
 # We will customise the fonts of the labels and the titles and put the legend in the bottom
-# We will se the y axis from 0 to 1000 with steps of 200
 # We will use geom_sooth to create our linear regression curves (method = lm) with a dashed line and width of 0.6 without showing the standard error
 linear_regression_plot <- ggplot(data, aes(x = Time, y = Nitrite, colour = factor(Dose))) + 
   theme_light() + 
