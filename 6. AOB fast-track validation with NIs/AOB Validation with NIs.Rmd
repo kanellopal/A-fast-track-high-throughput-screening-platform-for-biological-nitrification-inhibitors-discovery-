@@ -11,7 +11,7 @@ Step 1: Let's see all the necessary packages needed for the analysis and load th
 
 ```{r Library Installation and Loading, echo=TRUE, message=FALSE, warning=FALSE}
 # Here we store the necessary packages in the necessary_packages variable
-necessary_packages <- c("readxl","viridis","scales","dplyr","ggplot2","agricolae","sicegar","patchwork","gridExtra","rstatix", "tibble")
+necessary_packages <- c("readxl","dplyr","grid","gridExtra","ggplot2","xlsx","investr")
 
 # Here we check if the necessary packages are installed. If not, R installs them 
 if (!requireNamespace(necessary_packages, quietly = TRUE)) {
@@ -34,7 +34,7 @@ Step 1: Data input.
 library(readxl)
 data_Inhibition <- read_excel("AOB validation with NIs.xlsx", col_names = TRUE)
 
-# We have designated the different experiments/batches/runs of the fast-track system
+# We have designated the different experiments/batches/runs of the fast-track system in the "Experiment" column
 names(data_Inhibition) <- c("Time", "Compound", "Strain", "Treatment","Dose", "Replicate", "Nitrite", "Mean", "St.Dev", "CV%", "Experiment")
 View(data_Inhibition)
 ```
@@ -47,7 +47,7 @@ Step 2: Data processing
 compounds <- as.factor(levels(as.factor(data_Inhibition$Compound)))
 compounds_NI <- as.factor(as.vector(compounds[-c(3,8)]))
 
-# Change the AOB strains designation ad 
+# Change the AOB strains designation from abbreviation to full species name
 library(dplyr)
 data_Inhibition <- mutate(data_Inhibition, Strain = ifelse(Strain == "NUE", "N.ureae", Strain))
 data_Inhibition <- mutate(data_Inhibition, Strain = ifelse(Strain == "NMUL", "N.multiformis", Strain))
@@ -69,7 +69,7 @@ compounds_NI_NUE <- as.factor(as.vector(compounds_NI_NUE[-c(3,8)]))
 compounds_NI_NCOM <- as.factor(levels(as.factor(data_Inhibition_NCOM$Compound)))
 compounds_NI_NCOM <- as.factor(as.vector(compounds_NI_NCOM[-c(3,8)]))
 
-# Split the data of each strain per compound with the respective control
+# Split the data of each strain per compound along with the respective control
 
   # N. multiformis
 
@@ -190,8 +190,8 @@ for (i in 1:nrow(as.matrix(summary(dataframe_list_NCOM)))) {
   legend_order_NCOM[[legend_order_name]] <- legend_order 
 }
 
-# Set colour combinations for the different treatments per strain
-colors_A <- c("blue", "yellow3", "orange", "red", "red4")
+# Set colour combinations for the different treatments per strain (colours_B is for a case that > 4 doses were utilised)
+colors_A <- c("blue", "yellow3", "orange", "red", "red4") 
 colors_B <- c("blue", "yellow", "yellow3", "orange", "orange3", "red", "red4")
 
 # Generate the plots
@@ -204,6 +204,8 @@ for (i in 1:nrow(as.matrix(summary(dataframe_list_NMUL)))) {
   compound <- compounds_NI_NMUL[i]
 
   dataframe_list_NMUL[[i]]$Treatment <- factor(dataframe_list_NMUL[[i]]$Treatment, levels = legend_order_NMUL[[i]])
+  
+  library(ggplot2)
       inhibition_plot_temp <- ggplot(dataframe_list_NMUL[[i]], aes(x = Time, y = Nitrite, group = as.factor(Dose))) + theme_light() + labs(title = paste("Nitrosospira multiformis -",  dataframe_list_NMUL[[i]]$Compound[length(dataframe_list_NMUL[[i]]$Compound)]), subtitle = "Linear Regression Plot", x = "Time (h)", y = "[Nitrite] (μM)") + theme(axis.title = element_text(size = 28), axis.text = element_text(size = 24), legend.text = element_text(size = 24), legend.title = element_text(size = 20), legend.position = "bottom") + scale_y_continuous(breaks = seq(from = 0, to = 1200, by = 300), limits = c(0,1200)) + scale_x_continuous(breaks = seq(from = 0, to = 24, by = 8), limits = c(0,25)) + geom_smooth(aes(x = Time, y = Nitrite, colour = as.factor(Dose)), method = lm, linetype = "dashed", linewidth = 0.9, se = F, fullrange = T) + scale_color_manual(values = colors_A) + theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "inches"))
 
   inhibition_plot_name <- paste("inhibition","plot","NMUL",compounds_NI_NMUL[i],sep = "_")
@@ -252,6 +254,7 @@ Step 4: Generate the .pdf file
 #### Generate the .pdf file ---- 
 inhibition_plots_all <- list()
 
+# Grab all the plots in a list with three sublists (each for one strain)
 for (i in 1:length(levels(compounds_NI))) {
   pattern <- as.character(compounds_NI[i])
   plot_NMUL <- inhibition_plots_NMUL[grep(pattern = pattern, x = as.character(inhibition_plots_NMUL))]
@@ -267,13 +270,13 @@ for (i in 1:length(levels(compounds_NI))) {
 library(grid)
 library(gridExtra)
 
+# Collapse the three sublists and extract all plots in one list
 plots <- unlist(inhibition_plots_all, recursive = F)
 plots <- unlist(plots, recursive = F)
-empty_plot <- ggplot() + theme_void()
-empty_plot <- list(empty_plot)
 
-plots_A <- c(plots[1:9])
-plots_B <- c(plots[10:18])
+# Split the plots into two groups (SNIs and BNIs)
+plots_A <- c(plots[c(13:15,4:6,7:9)])
+plots_B <- c(plots[c(10:12,16:18,1:3)])
 
 vp <- viewport(width = 0.9, height = 0.9, just = "center", 
                x = 0.5, y = 0.5, 
@@ -306,6 +309,8 @@ The code in this section of the script has been used to determine EC50 values fo
   N. ureae: All NIs except for 1,9-decanediol
 analysing the responses as shown in Figure 2 and Supplementary Figure S7
 
+The script in this section has been copied from Papadopoulou et al. (2020) (https://doi.org/10.3389/fmicb.2020.581283) and has been used as is
+
 
 ```{r Data import and pre-processing, echo=TRUE}
 list.of.packages <- c("drc", "qpcR","xlsx")
@@ -334,7 +339,7 @@ colnames(ECs)<-c(colnames(mat[2:ncol(mat)]))
 
 
 
-#### prepare the combined plots (asked by Reviewer 1) for aLL activities using the norm to ctl ----
+#### prepare the combined plots for all activities using the norm to ctl ----
 
 library(drc)
 library(qpcR)
@@ -506,8 +511,7 @@ data <- read.table("mat_MHPP_NCOM.txt", header = TRUE, sep = "", dec = ".")
 # So we need to make a factor out of the Dose column of the data frame to apply the levels() function to give us the different doses (with each dose appearing once). 
 # Then, we make those different doses numerics and we store them in the doses variable 
 doses <- as.numeric(levels(as.factor(data$Dose)))
-#### Data Processing ----
-a_control <- coef(lm(Nitrite~Time, filter(data, Dose == doses[1])))["Time"]
+
 ```
 
 Step 2: Data visualisation
@@ -546,7 +550,8 @@ print(adj_r_squared_values)
 
 ```
 
-Step 3: Calculating the values required for the model to run
+Step 3: Calculating the values required for the model to run. These are the AOI% values referred in the Materials and Methods section
+
 ```{r Data import and pre-processing, echo=TRUE}
 
 #### Calculations ----
@@ -564,9 +569,8 @@ AOI_2 <- (a_control - a_NI_2) * 100 / a_control
 AOI_3 <- (a_control - a_NI_3) * 100 / a_control
 AOI_4 <- (a_control - a_NI_4) * 100 / a_control
 
-#Finally we store the AOI% values in the AOIs variable, along side the AOI% of the control which is 0
+# Finally we store the AOI% values in the AOIs variable, along side the AOI% of the control which is 0. Please make sure to add additional AOI values if more NI doses have been used
 AOIs <- c(0, AOI_1,AOI_2,AOI_3,AOI_4)
-AOIs <- c(AOIs, AOI_5)
 
 
 #### AOI% Distribution Check ---- 
@@ -581,10 +585,10 @@ Step 4: EC50 determination
 
 #### EC50 Calculation ----
 
-# If the value is over 0.9 then we execute the first part, with all values included
+# If the R-squared value of the linear regression is over 0.9, with p < 0.05 we execute the first part, with all values included
 # So the AOIs variable remains the same
 # We check the linear regression report
-# We plot the data (AOI% v Dose) in a simple plot, with empty circles as points, renaimed axis titles and an abline representing the linear regression. In the plot, using text() we can insert information about the EC50 calculated, the adjusted R-squared of the regression and the p-value.
+# We plot the data (AOI% v Dose) in a simple plot, with empty circles as points, renamed axis titles and an abline representing the linear regression. In the plot, using text() we can insert information about the EC50 calculated, the adjusted R-squared of the regression and the p-value.
 # Finally we print the EC50 value
 if (summary(lm(AOIs~as.numeric(doses)))$adj.r.squared > 0.95 && summary(lm(AOIs~as.numeric(doses)))$coefficients["as.numeric(doses)","Pr(>|t|)"] < 0.05 ) {
   AOIs <- AOIs
@@ -621,7 +625,7 @@ calibration <- calibrate(linear_regression, level = 0.95, y0 = 50, mean.response
 se <- calibration$se
 
 #### Report Files Export---- 
-# We will create two .pdf files and a .txt file as part of the report. 
+# We will create two .pdf files as part of the report. 
 # We will use cairo_pdf() for the .pdf files. The way it works is we designate the name of the files, as well as the dimensions in the () and then whatever we want to put inside comes next, before we close the graphics engine with dev.off()
 cairo_pdf("model_output_MHPP_NCOM.pdf", height = 6, width = 6, onefile = TRUE)
 plot_AOI_vs_dose <- plot(doses,AOIs, type = "o", ylab = "Ammonia Oxidation Inhibition %", xlab = "Dose") 
@@ -671,8 +675,7 @@ data <- read.table("mat_Nitrapyrin_NCOM.txt", header = TRUE, sep = "", dec = "."
 # So we need to make a factor out of the Dose column of the data frame to apply the levels() function to give us the different doses (with each dose appearing once). 
 # Then, we make those different doses numerics and we store them in the doses variable 
 doses <- as.numeric(levels(as.factor(data$Dose)))
-#### Data Processing ----
-a_control <- coef(lm(Nitrite~Time, filter(data, Dose == doses[1])))["Time"]
+
 ```
 
 Step 2: Data visualisation
@@ -729,9 +732,8 @@ AOI_2 <- (a_control - a_NI_2) * 100 / a_control
 AOI_3 <- (a_control - a_NI_3) * 100 / a_control
 AOI_4 <- (a_control - a_NI_4) * 100 / a_control
 
-#Finally we store the AOI% values in the AOIs variable, along side the AOI% of the control which is 0
+# Finally we store the AOI% values in the AOIs variable, along side the AOI% of the control which is 0. Please make sure to add additional AOI values if more NI doses have been used
 AOIs <- c(0, AOI_1,AOI_2,AOI_3,AOI_4)
-AOIs <- c(AOIs, AOI_5)
 
 
 #### AOI% Distribution Check ---- 
