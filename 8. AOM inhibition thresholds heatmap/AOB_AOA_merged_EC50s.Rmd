@@ -1,5 +1,5 @@
 ---
-title: "AOM inhibition thresholds heatmap and comparison with literature"
+title: "AOM inhibition thresholds heatmap"
 author: "Alex Kanellopoulos"
 date: "2024-12-03"
 output: html_document
@@ -11,7 +11,7 @@ Step 1: Let's see all the necessary packages needed for the analysis and load th
 
 ```{r Library Installation and Loading, echo=TRUE, message=FALSE, warning=FALSE}
 # Here we store the necessary packages in the necessary_packages variable
-necessary_packages <- c("readxl","viridis","scales","dplyr","ggplot2","agricolae","sicegar","patchwork","gridExtra","rstatix", "tibble")
+necessary_packages <- c("readxl","ComplexHeatmap","dendextend","dplyr","ggplot2","patchwork")
 
 # Here we check if the necessary packages are installed. If not, R installs them 
 if (!requireNamespace(necessary_packages, quietly = TRUE)) {
@@ -40,7 +40,7 @@ names(data) <- c("Compound","N. multiformis","N. ureae","N. communis","Ca. N. fr
 Step 2: Data processing
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-
+# Get the compounds
 compounds <- data$Compound
 data_EC50 <- data[,-1]
 
@@ -49,7 +49,7 @@ data_EC50_mat <- as.matrix(data_EC50)
 col_to_row_names <- compounds
 rownames(data_EC50_mat) <- col_to_row_names
 
-# Scale the data to reveal the differences
+# Scale the data to not cover the differences
 data_EC50_mat_scaled <- log(data_EC50_mat, 10)
 
 
@@ -61,8 +61,11 @@ Step 3: Create the heatmap
 
 library(ComplexHeatmap)
 library(dendextend)
+
+# Create the row and column dendrograms using Euclidean distances. 
 row_dend <- as.dendrogram(hclust(dist(data_EC50_mat, method = "euclidean")))
-row_dend <- colour_branches(row_dend, k = 6) 
+  #Set the row colours number
+  row_dend <- colour_branches(row_dend, k = 6) 
 column_dend <- as.dendrogram(hclust(dist(data_EC50_mat, method = "euclidean")))
 column_dend <- colour_branches(column_dend, k = 5)
 
@@ -83,7 +86,7 @@ EC50_complex_heatmap <- Heatmap(data_EC50_mat_scaled, name = "log(10) EC50 (μM)
 
 EC50_complex_heatmap
 
-cairo_pdf("Figure 4-AOM_EC50s_heatmap_log.pdf", width = 8, height = 4)
+cairo_pdf("Figure 4-AOM_EC50s_heatmap_log.pdf", width = 10, height = 4)
 print(EC50_complex_heatmap)
 dev.off()
 
@@ -96,10 +99,11 @@ The plots are used in Supplementary Figure 9
 Step 1: Data input.
 
 ```{r Data import and pre-processing, echo=TRUE}
+#Import the data
 library(readxl)
 data_NMUL <- read_xlsx("AOB_AOA_merged_EC50s.xlsx", sheet = 3)
 names(data_NMUL) <- c("Compound", "EC50_LBC", "SE_LBC", "EC50_FTS", "SE_FTS")
-view(data_NMUL)
+View(data_NMUL)
 
 ```
 
@@ -107,9 +111,14 @@ Step 2: Check the correlation through a linear regression plot with the non-tran
 
 ```{r Data import and pre-processing, echo=TRUE}
 
-# Non-transformed values
+# Work with the non-transformed values
+  # Check the correlation through the linear regression
 linear_regression_EC50_NMUL <- summary(lm(EC50_FTS~EC50_LBC, data_NMUL))
 linear_regression_EC50_NMUL
+
+# Plot 
+
+library(ggplot2)
 
 line_plot_EC50_NMUL <- ggplot(data_NMUL, aes(x = EC50_LBC, y = EC50_FTS)) + geom_point(size = 2) +
   theme_light() + 
@@ -117,10 +126,13 @@ line_plot_EC50_NMUL <- ggplot(data_NMUL, aes(x = EC50_LBC, y = EC50_FTS)) + geom
   theme(axis.title = element_text(size = 24), axis.text = element_text(size = 20), legend.title = element_text(size = 16), legend.text = element_text(size = 20)) + geom_errorbar(aes(ymin = EC50_FTS - SE_FTS, ymax = EC50_FTS + SE_FTS)) + 
   geom_errorbar(aes(xmin = EC50_LBC - SE_LBC, xmax = EC50_LBC + SE_LBC)) + geom_smooth(method = lm, linetype = "dashed", linewidth = 0.6, se = T) + 
   geom_point(aes(colour = Compound)) +   
-  geom_text(x = 0, y = -150, label = paste("R - squared =", round(linear_regression_EC50$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
-  geom_text(x = 0, y = -200, label = paste("Slope =", round(linear_regression_EC50$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
+  geom_text(x = 0, y = -150, label = paste("R - squared =", round(linear_regression_EC50_NMUL$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
+  geom_text(x = 0, y = -200, label = paste("Slope =", round(linear_regression_EC50_NMUL$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
 
-# Log(10)-transformed values 
+# Work with the log(10)-transformed values 
+
+library(dplyr)
+
 data_NMUL_log10 <- mutate(data_NMUL, EC50_LBC = log10(EC50_LBC), SE_LBC = log10(SE_LBC), EC50_FTS = log10(EC50_FTS), SE_FTS = log10(SE_FTS))
 
 linear_regression_logEC50_NMUL <- summary(lm(EC50_FTS~EC50_LBC, data_NMUL_log10))
@@ -131,8 +143,8 @@ line_plot_EC50_log10_NMUL <- ggplot(data_NMUL_log10, aes(x = EC50_LBC, y = EC50_
   theme_light() + 
   labs(x = "log10 Liquid Batch Cultures EC50 (μM)", y = "log10 Fast - Track System EC50 (μM)") +
   theme(axis.title = element_text(size = 24), axis.text = element_text(size = 20), legend.title = element_text(size = 16), legend.text = element_text(size = 20)) + geom_smooth(method = lm, linetype = "dashed", linewidth = 1, se = T) + geom_point(aes(colour = Compound)) +   
-  geom_text(x = 0, y = -0.63, label = paste("R - squared =", round(linear_regression_logEC50$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
-  geom_text(x = 0, y = -0.83, label = paste("Slope =", round(linear_regression_logEC50$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
+  geom_text(x = 0, y = -0.63, label = paste("R - squared =", round(linear_regression_logEC50_NMUL$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
+  geom_text(x = 0, y = -0.83, label = paste("Slope =", round(linear_regression_logEC50_NMUL$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
 
 ```
 
@@ -180,7 +192,9 @@ Step 4: Generate the .pdf file
 
 ```{r Data import and pre-processing, echo=TRUE, message=FALSE, warning=FALSE}
 
-patchwork_EC50_compare_NMUL <- (line_plot_EC50_NMUL + line_plot_EC50_log10_NMUL) / EC50_compare_plot_DMPP_NP_NMUL / EC50_compare_plot_EQ_MHPP_SKNT_DD_NMUL + plot_layout(ncol = 1, nrow = 3, heights = c(4,2,3))
+library(patchwork)
+patchwork_EC50_compare_NMUL <- (line_plot_EC50_NMUL + line_plot_EC50_log10_NMUL) / EC50_compare_plot_DMPP_NP_NMUL / EC50_compare_plot_EQ_MHPP_SKNT_DD_NMUL + 
+  plot_layout(ncol = 1, nrow = 3, heights = c(4,2,3))
 
 patchwork_EC50_compare_NMUL <- patchwork_EC50_compare_NMUL + plot_annotation(tag_levels = "A") & 
   theme(plot.tag = element_text(size = 40)) 
@@ -203,7 +217,10 @@ Step 1: Data input.
 library(readxl)
 data_NF <- read_xlsx("AOB_AOA_merged_EC50s.xlsx", sheet = 5)
 names(data_NF) <- c("Compound", "EC50_LBC", "SE_LBC", "EC50_FTS", "SE_FTS")
-view(data_NF)
+
+# Remove the 1,9-decanediol values as they compromise the linear regression quality (R < 0)
+data_NF <- data_NF[-6,]
+View(data_NF)
 
 ```
 
@@ -221,8 +238,8 @@ line_plot_EC50_NF <- ggplot(data_NF, aes(x = EC50_LBC, y = EC50_FTS)) + geom_poi
   theme(axis.title = element_text(size = 24), axis.text = element_text(size = 20), legend.title = element_text(size = 16), legend.text = element_text(size = 20)) + geom_errorbar(aes(ymin = EC50_FTS - SE_FTS, ymax = EC50_FTS + SE_FTS)) + 
   geom_errorbar(aes(xmin = EC50_LBC - SE_LBC, xmax = EC50_LBC + SE_LBC)) + geom_smooth(method = lm, linetype = "dashed", linewidth = 0.6, se = T) + 
   geom_point(aes(colour = Compound)) +   
-  geom_text(x = 0, y = -1000, label = paste("R - squared =", round(linear_regression_EC50$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
-  geom_text(x = 0, y = -1500, label = paste("Slope =", round(linear_regression_EC50$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
+  geom_text(x = 0, y = -750, label = paste("R - squared =", round(linear_regression_EC50_NF$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
+  geom_text(x = 0, y = -1000, label = paste("Slope =", round(linear_regression_EC50_NF$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
 
 # Log(10)-transformed values 
 data_NF_log10 <- mutate(data_NF, EC50_LBC = log10(EC50_LBC), SE_LBC = log10(SE_LBC), EC50_FTS = log10(EC50_FTS), SE_FTS = log10(SE_FTS))
@@ -235,8 +252,8 @@ line_plot_EC50_log10_NF <- ggplot(data_NF_log10, aes(x = EC50_LBC, y = EC50_FTS)
   theme_light() + 
   labs(x = "log10 Liquid Batch Cultures EC50 (μM)", y = "log10 Fast - Track System EC50 (μM)") +
   theme(axis.title = element_text(size = 24), axis.text = element_text(size = 20), legend.title = element_text(size = 16), legend.text = element_text(size = 20)) + geom_smooth(method = lm, linetype = "dashed", linewidth = 1, se = T) + geom_point(aes(colour = Compound)) +   
-  geom_text(x = 0, y = 0.25, label = paste("R - squared =", round(linear_regression_logEC50$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
-  geom_text(x = 0, y = 0, label = paste("Slope =", round(linear_regression_logEC50$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
+  geom_text(x = 0, y = 0.25, label = paste("R - squared =", round(linear_regression_logEC50_NF$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
+  geom_text(x = 0, y = 0, label = paste("Slope =", round(linear_regression_logEC50_NF$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
 
 ```
 
@@ -284,7 +301,8 @@ Step 4: Generate the .pdf file
 
 ```{r Data import and pre-processing, echo=TRUE, message=FALSE, warning=FALSE}
 
-patchwork_EC50_compare_NF <- (line_plot_EC50_NF + line_plot_EC50_log10_NF) / EC50_compare_plot_NP_EQ_SKNT_NF / EC50_compare_plot_MHPP_SKNT_DD_NF + plot_layout(ncol = 1, nrow = 3, heights = c(4,2,3))
+patchwork_EC50_compare_NF <- (line_plot_EC50_NF + line_plot_EC50_log10_NF) / EC50_compare_plot_NP_EQ_SKNT_NF / EC50_compare_plot_MHPP_SKNT_DD_NF + 
+  plot_layout(ncol = 1, nrow = 3, heights = c(4,2,3))
 
 patchwork_EC50_compare_NF <- patchwork_EC50_compare_NF + plot_annotation(tag_levels = "A") & 
   theme(plot.tag = element_text(size = 40)) 
@@ -306,9 +324,10 @@ Step 1: Data input.
 ```{r Data import and pre-processing, echo=TRUE}
 library(readxl)
 data_NVE <- read_xlsx("AOB_AOA_merged_EC50s.xlsx", sheet = 7)
+# Remove DMPP and Ethoxyquin values as no data exist in literature to compare with
 data_NVE <- data_NVE[-c(1,3),]
 names(data_NVE) <- c("Compound", "EC50_LBC", "SE_LBC", "EC50_FTS", "SE_FTS")
-view(data_NVE)
+View(data_NVE)
 
 ```
 
@@ -326,8 +345,8 @@ line_plot_EC50_NVE <- ggplot(data_NVE, aes(x = EC50_LBC, y = EC50_FTS)) + geom_p
   theme(axis.title = element_text(size = 24), axis.text = element_text(size = 20), legend.title = element_text(size = 16), legend.text = element_text(size = 20)) + geom_errorbar(aes(ymin = EC50_FTS - SE_FTS, ymax = EC50_FTS + SE_FTS)) + 
   geom_errorbar(aes(xmin = EC50_LBC - SE_LBC, xmax = EC50_LBC + SE_LBC)) + geom_smooth(method = lm, linetype = "dashed", linewidth = 0.6, se = T) + 
   geom_point(aes(colour = Compound)) +   
-  geom_text(x = 200, y = -1000, label = paste("R - squared =", round(linear_regression_EC50$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
-  geom_text(x = 200, y = -1500, label = paste("Slope =", round(linear_regression_EC50$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
+  geom_text(x = 200, y = -1000, label = paste("R - squared =", round(linear_regression_EC50_NVE$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
+  geom_text(x = 200, y = -1500, label = paste("Slope =", round(linear_regression_EC50_NVE$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
 
 # Log(10)-transformed values 
 data_NVE_log10 <- mutate(data_NVE, EC50_LBC = log10(EC50_LBC), SE_LBC = log10(SE_LBC), EC50_FTS = log10(EC50_FTS), SE_FTS = log10(SE_FTS))
@@ -340,8 +359,8 @@ line_plot_EC50_log10_NVE <- ggplot(data_NVE_log10, aes(x = EC50_LBC, y = EC50_FT
   theme_light() + 
   labs(x = "log10 Liquid Batch Cultures EC50 (μM)", y = "log10 Fast - Track System EC50 (μM)") +
   theme(axis.title = element_text(size = 24), axis.text = element_text(size = 20), legend.title = element_text(size = 16), legend.text = element_text(size = 20)) + geom_smooth(method = lm, linetype = "dashed", linewidth = 1, se = T) + geom_point(aes(colour = Compound)) +   
-  geom_text(x = 2, y = 0.8, label = paste("R - squared =", round(linear_regression_logEC50$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
-  geom_text(x = 2, y = 0.6, label = paste("Slope =", round(linear_regression_logEC50$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
+  geom_text(x = 2, y = 0.8, label = paste("R - squared =", round(linear_regression_logEC50_NVE$adj.r.squared,4)), colour = "black", size = 5, hjust = 0) +   
+  geom_text(x = 2, y = 0.6, label = paste("Slope =", round(linear_regression_logEC50_NVE$coefficients[2,1],2)), colour = "black", size = 5, hjust = 0)   
 
 ```
 
@@ -389,7 +408,8 @@ Step 4: Generate the .pdf file
 
 ```{r Data import and pre-processing, echo=TRUE, message=FALSE, warning=FALSE}
 
-patchwork_EC50_compare_NVE <- (line_plot_EC50_NVE + line_plot_EC50_log10_NVE) / EC50_compare_plot_NP_EQ_SKNT_NVE / EC50_compare_plot_MHPP_SKNT_DD_NVE + plot_layout(ncol = 1, nrow = 3, heights = c(4,2,3))
+patchwork_EC50_compare_NVE <- (line_plot_EC50_NVE + line_plot_EC50_log10_NVE) / EC50_compare_plot_NP_EQ_SKNT_NVE / EC50_compare_plot_MHPP_SKNT_DD_NVE + 
+  plot_layout(ncol = 1, nrow = 3, heights = c(4,2,3))
 
 patchwork_EC50_compare_NVE <- patchwork_EC50_compare_NVE + plot_annotation(tag_levels = "A") & 
   theme(plot.tag = element_text(size = 40)) 
